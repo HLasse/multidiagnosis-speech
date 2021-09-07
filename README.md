@@ -1,5 +1,15 @@
 # wav2vec_finetune
 
+```
+mkdir data
+mkdir json_files
+cd data
+wget https://zenodo.org/record/1219621/files/CaFE_48k.zip?download=1
+unzip 
+```
+
+
+
 Test finetuning of XLSR (multilingual wav2vec 2.0) for other speech classification tasks
 Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
 

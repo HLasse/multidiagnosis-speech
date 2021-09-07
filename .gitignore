@@ -130,3 +130,4 @@ dmypy.json
 
 data/
 json_files/
+preproc_data/
