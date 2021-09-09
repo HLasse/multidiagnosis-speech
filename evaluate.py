@@ -1,6 +1,5 @@
 """evaluate model performance"""
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
 
@@ -56,6 +55,7 @@ test = pd.read_csv(os.path.join("preproc_data", "test_data.csv"), sep="\t")
 # apply predictions
 test = test.apply(add_predicted_and_confidence, axis=1)
 
-confusion_matrix(test["label"], test["pred"])
+print(confusion_matrix(test["label"], test["pred"]))
 print(classification_report(test["label"], test["pred"]))
-accuracy_score(test["label"], test["pred"])
+acc = accuracy_score(test["label"], test["pred"])
+print(f"accuracy: {acc}")

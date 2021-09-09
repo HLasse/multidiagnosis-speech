@@ -3,10 +3,9 @@ import numpy as np
 import torchaudio
 import os
 from datasets import load_dataset
-from transformers.utils.dummy_pt_objects import ELECTRA_PRETRAINED_MODEL_ARCHIVE_LIST
 # from model import Wav2Vec2ForSpeechClassification
 from src.data_collator import DataCollatorCTCWithInputPadding
-from src.trainer import CTCTrainer
+# from src.trainer import CTCTrainer
 from dataclasses import dataclass, field
 
 from transformers import (
@@ -19,21 +18,24 @@ from transformers import (
 
 # set constants
 MODEL_NAME = "facebook/wav2vec2-large-xlsr-53"
-CACHE_DIR = "cache_dir"
-
+# training params
+EPOCHS = 100
+LEARNING_RATE = 3e-3
 # model parameters (play around with these)
-@dataclass
-class ModelConfigArguments:
-    """Arguments pertaining to the model config"""
-    attention_dropout: int = field(
-        default=0.1,
-        metadata={
-            "help" : "fill in stuff."
-        }
-    )
 
 
-# model param                # default
+# potentially rewrite arguments into this form to be parsable with HfArgumentParser
+# @dataclass
+# class ModelConfigArguments:
+#     """Arguments pertaining to the model config"""
+#     attention_dropout: int = field(
+#         default=0.1,
+#         metadata={
+#             "help" : "fill in stuff."
+#         }
+#     )
+
+# model params              # default
 ATTENTION_DROPOUT = 0.1     # 0.1
 HIDDEN_DROPOUT = 0.1        # 0.1
 FEAT_PROJ_DROPOUT=0.0       # 0.1
@@ -42,9 +44,7 @@ LAYERDROP = 0.1             # 0.1
 GRADIENT_CHECKPOINTING=True # False
 CTC_LOSS_REDUCTION="mean"   # "sum"
 
-# training params
-EPOCHS = 100
-LEARNING_RATE = 3e-3
+
 
 params = {"attention_dropout" : ATTENTION_DROPOUT,
           "hidden_dropout" : HIDDEN_DROPOUT,
@@ -56,9 +56,9 @@ params = {"attention_dropout" : ATTENTION_DROPOUT,
 
 # Preprocessing functions
 def speech_file_to_array(path):
-    "resample audio to match what the model expects"
+    "resample audio to match what the model expects (16000 khz)"
     speech_array, sampling_rate = torchaudio.load(path)
-    resampler= torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
+    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     speech = resampler(speech_array).squeeze().numpy()
     return speech
 
@@ -67,6 +67,7 @@ def label_to_id(label, label_list):
     return label_list.index(label)
 
 def preprocess(batch):
+    "preprocess hf dataset/load data"
     speech_list = [speech_file_to_array(path) for path in batch[input_col]]
     labels = [label_to_id(label, label_list) for label in batch[label_col]]
     
@@ -80,97 +81,90 @@ def compute_metrics(p: EvalPrediction):
     preds = np.argmax(preds, axis=1)
     return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
-################### LOAD DATASETS
-#######
-####
-# load datasets
-data_files = {
-    "train" : os.path.join("preproc_data", "train_data.csv"),
-    "validation" : os.path.join("preproc_data", "test_data.csv")
-}
 
-dataset = load_dataset("csv", data_files=data_files, delimiter = "\t")
-train = dataset["train"]
-val = dataset["validation"]
-# specify input/label columns
-input_col = "file"
-label_col = "label"
+if __name__ == "__main__":
 
-# get labels and num labels
-label_list = train.unique(label_col)
-# sorting for determinism
-label_list.sort()
-num_labels = len(label_list)
+    ################### LOAD DATASETS
+    #######
+    ####
+    # load datasets
+    data_files = {
+        "train" : os.path.join("preproc_data", "train_data.csv"),
+        "validation" : os.path.join("preproc_data", "test_data.csv")
+    }
 
-# Load feature extractor
-processor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
-# need this parameter for preprocessing to resample audio to correct sampling rate
-target_sampling_rate = processor.sampling_rate
+    dataset = load_dataset("csv", data_files=data_files, delimiter = "\t")
+    train = dataset["train"]
+    val = dataset["validation"]
+    # specify input/label columns
+    input_col = "file"
+    label_col = "label"
 
-# preprocess datasets
-train = train.map(preprocess, batched=True)
-val = val.map(preprocess, batched=True)
+    # get labels and num labels
+    label_list = train.unique(label_col)
+    # sorting for determinism
+    label_list.sort()
+    num_labels = len(label_list)
 
-################### LOAD MODEL
-#######
-####
+    # Load feature extractor
+    processor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
+    # need this parameter for preprocessing to resample audio to correct sampling rate
+    target_sampling_rate = processor.sampling_rate
 
-# loading model config
-config = AutoConfig.from_pretrained(
-        MODEL_NAME,
-        num_labels=num_labels,
-        label2id={label: i for i, label in enumerate(label_list)},
-        id2label={i: label for i, label in enumerate(label_list)},
-        finetuning_task="wav2vec2_clf",
-        **params
+    # preprocess datasets
+    train = train.map(preprocess, batched=True)
+    val = val.map(preprocess, batched=True)
+
+    ################### LOAD MODEL
+    #######
+    ####
+
+    # loading model config
+    config = AutoConfig.from_pretrained(
+            MODEL_NAME,
+            num_labels=num_labels,
+            label2id={label: i for i, label in enumerate(label_list)},
+            id2label={i: label for i, label in enumerate(label_list)},
+            finetuning_task="wav2vec2_clf",
+            **params
+        )
+
+    # load model (with a simple linear projection (input 1024 -> 256 units) and a binary classification on top)
+    model = Wav2Vec2ForSequenceClassification.from_pretrained("facebook/wav2vec2-large-xlsr-53", config=config)
+
+    # instantiate a data collator that takes care of correctly padding the input data
+    data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
+
+    # freezing the feature extractor (the CNN encoder) of the model - it's already finetuned plenty
+    model.freeze_feature_extractor()
+    # can potentially also freeze all wav2vec parameters (including the transformer) with
+    # model.freeze_base_model()
+
+    # set arguments to Trainer
+    training_args = TrainingArguments(
+        output_dir = os.path.join("model", "xlsr_gender_recognition"),
+        #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
+        per_device_train_batch_size=16,
+        gradient_accumulation_steps=2,
+        evaluation_strategy="steps",
+        num_train_epochs=EPOCHS,
+        fp16=True,
+        save_steps=10,
+        eval_steps=10,
+        logging_steps=10,
+        learning_rate=LEARNING_RATE, # play with this (also optimizer and learning schedule)
+        save_total_limit=2
     )
 
-# load model (with a simple linear projection (input 1024 -> 256 units) and a binary classification on top)
-model = Wav2Vec2ForSequenceClassification.from_pretrained("facebook/wav2vec2-large-xlsr-53", config=config)
-
-# instantiate a data collator that takes care of correctly padding the input data
-data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
-
-# freezing the feature extractor (the CNN encoder) of the model - it's already finetuned plenty
-model.freeze_feature_extractor()
-# can potentially also freeze all wav2vec parameters (inclucding the transformer) with
-# model.freeze_base_model()
-
-# set arguments to Trainer
-training_args = TrainingArguments(
-    output_dir = os.path.join("model", "xlsr_gender_recognition"),
-    #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
-    per_device_train_batch_size=16,
-    gradient_accumulation_steps=2,
-    evaluation_strategy="steps",
-    num_train_epochs=EPOCHS,
-    fp16=True,
-    save_steps=10,
-    eval_steps=10,
-    logging_steps=10,
-    learning_rate=LEARNING_RATE, # play with this (also optimizer and learning schedule)
-    save_total_limit=2
-)
-
-trainer = Trainer(
-    model=model,
-    data_collator=data_collator,
-    args=training_args,
-    compute_metrics=compute_metrics,
-    train_dataset=train,
-    eval_dataset=val,
-    tokenizer=processor
-)
-
-trainer.train()
-trainer.evaluate()
-
-# if __name__ == "__main__":
-
-#     dataset = datasets.load_dataset("json", data_files=[os.path.join("json_files", file) for file in os.listdir("json_files")], split="train")
-
-#     # process dataset
-#     dataset = dataset.map(speech_file_to_array)
-#     dataset = dataset.map(resample)
-
-#     dataset.save_to_disk("preproc_data")
+    trainer = Trainer(
+        model=model,
+        data_collator=data_collator,
+        args=training_args,
+        compute_metrics=compute_metrics,
+        train_dataset=train,
+        eval_dataset=val,
+        tokenizer=processor
+    )
+    # Train!
+    trainer.train()
+    trainer.evaluate()
