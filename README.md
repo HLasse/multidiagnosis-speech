@@ -37,6 +37,8 @@ python evaluate.py
 - https://huggingface.co/docs/datasets/loading_datasets.html#from-local-files
 - https://github.com/huggingface/transformers/blob/master/examples/research_projects/wav2vec2/FINE_TUNE_XLSR_WAV2VEC2.md
 - https://github.com/m3hrdadfi/soxan
+- https://www.zhaw.ch/storage/engineering/institute-zentren/cai/BA21_Speech_Classification_Reiser_Fivian.pdf
+- https://github.com/DReiser7/w2v_did
 
 ## Notes:
 - Look into SpecAugment for finetuning: https://arxiv.org/abs/1904.08779 (on by default)
