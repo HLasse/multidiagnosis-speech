@@ -1,9 +1,9 @@
 import pandas as pd
 from pathlib import Path
 
-
-RAW_PATH = Path('data') / 'raw'
-PROCESSED_PATH = Path('data') / 'processed'
+TRANSCRIPTS_PATH = Path('data') / 'transcripts'
+RAW_PATH =  TRANSCRIPTS_PATH / 'raw'
+PROCESSED_PATH = TRANSCRIPTS_PATH / 'processed'
 
 
 # Read in trial data, get participant descriptors, only keep non acoustic features
