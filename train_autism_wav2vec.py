@@ -1,3 +1,9 @@
+"""Train wav2vec for autism classification (on both stories and triangles task - probably do one for each)
+TODO
+- try the custom Wav2Vec2Processor and CTCTrainer and DataCollatorCTCWithPaddingKlaam
+- experiment with parameters
+"""
+
 #from platform import processor
 import numpy as np
 import torchaudio
@@ -18,22 +24,19 @@ from transformers import (
 
 # set constants
 MODEL_NAME = "facebook/wav2vec2-large-xlsr-53"
+OUTPUT_DIR = os.path.join("model", "xlsr_autism_stories")
+TRAIN = os.path.join("data", "stories_train_data.csv")
+VALIDATION = os.path.join("data", "stories_test_data.csv")
+
+FREEZE_ENCODER = True
+FREEZE_BASE_MODEL = False
+# specify input/label columns
+INPUT_COL = "file"
+LABEL_COL = "Diagnosis"
 # training params
 EPOCHS = 100
 LEARNING_RATE = 3e-3
-# model parameters (play around with these)
-
-
-# potentially rewrite arguments into this form to be parsable with HfArgumentParser
-# @dataclass
-# class ModelConfigArguments:
-#     """Arguments pertaining to the model config"""
-#     attention_dropout: int = field(
-#         default=0.1,
-#         metadata={
-#             "help" : "fill in stuff."
-#         }
-#     )
+BATCH_SIZE = 5
 
 # model params              # default
 ATTENTION_DROPOUT = 0.1     # 0.1
@@ -42,9 +45,7 @@ FEAT_PROJ_DROPOUT=0.0       # 0.1
 MASK_TIME_PROB=0.05         # 0.075
 LAYERDROP = 0.1             # 0.1
 GRADIENT_CHECKPOINTING=True # False
-CTC_LOSS_REDUCTION="mean"   # "sum"
-
-
+CTC_LOSS_REDUCTION="sum"   # "sum"   - try "mean"
 
 params = {"attention_dropout" : ATTENTION_DROPOUT,
           "hidden_dropout" : HIDDEN_DROPOUT,
@@ -68,8 +69,8 @@ def label_to_id(label, label_list):
 
 def preprocess(batch):
     "preprocess hf dataset/load data"
-    speech_list = [speech_file_to_array(path) for path in batch[input_col]]
-    labels = [label_to_id(label, label_list) for label in batch[label_col]]
+    speech_list = [speech_file_to_array(path) for path in batch[INPUT_COL]]
+    labels = [label_to_id(label, label_list) for label in batch[LABEL_COL]]
     
     out = processor(speech_list, sampling_rate=target_sampling_rate)
     out["labels"] = list(labels)
@@ -89,19 +90,17 @@ if __name__ == "__main__":
     ####
     # load datasets
     data_files = {
-        "train" : os.path.join("preproc_data", "train_data.csv"),
-        "validation" : os.path.join("preproc_data", "test_data.csv")
+        "train" : TRAIN,
+        "validation" : VALIDATION
     }
 
-    dataset = load_dataset("csv", data_files=data_files, delimiter = "\t")
+    print("[INFO] Loading dataset...")
+    dataset = load_dataset("csv", data_files=data_files, delimiter = ",")
     train = dataset["train"]
     val = dataset["validation"]
-    # specify input/label columns
-    input_col = "file"
-    label_col = "label"
 
     # get labels and num labels
-    label_list = train.unique(label_col)
+    label_list = train.unique(LABEL_COL)
     # sorting for determinism
     label_list.sort()
     num_labels = len(label_list)
@@ -112,6 +111,7 @@ if __name__ == "__main__":
     target_sampling_rate = processor.sampling_rate
 
     # preprocess datasets
+    print("[INFO] Preprocessing dataset...")
     train = train.map(preprocess, batched=True)
     val = val.map(preprocess, batched=True)
 
@@ -135,16 +135,16 @@ if __name__ == "__main__":
     # instantiate a data collator that takes care of correctly padding the input data
     data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
 
-    # freezing the feature extractor (the CNN encoder) of the model - it's already finetuned plenty
-    model.freeze_feature_extractor()
-    # can potentially also freezep all wav2vec parameters (including the transformer) with
-    # model.freeze_base_model()
-
+    if FREEZE_ENCODER and not FREEZE_BASE_MODEL:
+        model.freeze_feature_extractor()
+    if FREEZE_BASE_MODEL:
+        model.freeze_base_model()
+ 
     # set arguments to Trainer
     training_args = TrainingArguments(
-        output_dir = os.path.join("model", "xlsr_gender_recognition"),
+        output_dir = OUTPUT_DIR,
         #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
-        per_device_train_batch_size=16,
+        per_device_train_batch_size=BATCH_SIZE,
         gradient_accumulation_steps=2,
         evaluation_strategy="steps",
         num_train_epochs=EPOCHS,
@@ -166,5 +166,6 @@ if __name__ == "__main__":
         tokenizer=processor
     )
     # Train!
+    print("[INFO] Starting training...")
     trainer.train()
     trainer.evaluate()
