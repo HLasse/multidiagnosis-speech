@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import glob
 
 TRANSCRIPTS_PATH = Path('data') / 'transcripts'
 RAW_PATH =  TRANSCRIPTS_PATH / 'raw'
@@ -63,6 +64,13 @@ def preprocess():
     triangles = triangles[cols]
     stories['language'] = 'dk'
     triangles['language'] = 'dk'
+
+    # Strip stuff between brackets
+    pattern = r'(\[|\()+.*(\]|\))+'
+    stories['Transcript'] = stories['Transcript'].str.replace(pattern, '',
+                                                              regex=True)
+    triangles['Transcript'] = triangles['Transcript'].str.replace(pattern, '',
+                                                                  regex=True)
 
     # Store
     print('Saving...')
