@@ -10,8 +10,9 @@ import torchaudio
 import os
 from datasets import load_dataset
 # from model import Wav2Vec2ForSpeechClassification
-from src.data_collator import DataCollatorCTCWithInputPadding
-# from src.trainer import CTCTrainer
+from src.data_collator import DataCollatorCTCWithInputPadding, DataCollatorCTCWithPaddingKlaam
+from src.trainer import CTCTrainer
+from src.processor import CustomWav2Vec2Processor
 from dataclasses import dataclass, field
 
 from transformers import (
@@ -21,6 +22,9 @@ from transformers import (
     EvalPrediction,
     TrainingArguments,
     Trainer)
+
+from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+
 
 # set constants
 MODEL_NAME = "facebook/wav2vec2-large-xlsr-53"
@@ -39,11 +43,11 @@ LEARNING_RATE = 3e-3  # 3e-3
 BATCH_SIZE = 2
 
 # model params              # default
-ATTENTION_DROPOUT = 0.1     # 0.1
-HIDDEN_DROPOUT = 0.1        # 0.1
+ATTENTION_DROPOUT = 0.01     # 0.1
+HIDDEN_DROPOUT = 0.01        # 0.1
 FEAT_PROJ_DROPOUT=0.0       # 0.1
 MASK_TIME_PROB=0.05         # 0.075
-LAYERDROP = 0.1             # 0.1
+LAYERDROP = 0.01             # 0.1
 GRADIENT_CHECKPOINTING=True # False
 CTC_LOSS_REDUCTION="sum"   # "sum"   - try "mean"
 
@@ -82,6 +86,16 @@ def compute_metrics(p: EvalPrediction):
     preds = np.argmax(preds, axis=1)
     return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
+def compute_metrics(pred):
+    labels = pred.label_ids.argmax(-1)
+    preds = pred.predictions.argmax(-1)
+    acc = accuracy_score(labels, preds)
+    report = classification_report(labels, preds)
+    matrix = confusion_matrix(labels, preds)
+    print(matrix)
+    print(report)
+    return {"accuracy": acc}
+
 
 if __name__ == "__main__":
 
@@ -106,9 +120,10 @@ if __name__ == "__main__":
     num_labels = len(label_list)
 
     # Load feature extractor
-    processor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
+    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
+    processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
     # need this parameter for preprocessing to resample audio to correct sampling rate
-    target_sampling_rate = processor.sampling_rate
+    target_sampling_rate = processor.feature_extractor.sampling_rate
 
     # preprocess datasets
     print("[INFO] Preprocessing dataset...")
@@ -133,7 +148,8 @@ if __name__ == "__main__":
     model = Wav2Vec2ForSequenceClassification.from_pretrained("facebook/wav2vec2-large-xlsr-53", config=config)
 
     # instantiate a data collator that takes care of correctly padding the input data
-    data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
+    # data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
+    data_collator = DataCollatorCTCWithPaddingKlaam(processor=processor, padding=True)
 
     if FREEZE_ENCODER and not FREEZE_BASE_MODEL:
         model.freeze_feature_extractor()
@@ -156,15 +172,16 @@ if __name__ == "__main__":
         save_total_limit=2
     )
 
-    trainer = Trainer(
+    trainer = CTCTrainer(
         model=model,
         data_collator=data_collator,
         args=training_args,
-        compute_metrics=compute_metrics,
+        computete_metrics=compute_metrics,
         train_dataset=train,
         eval_dataset=val,
-        tokenizer=processor
+        tokenizer=processor.feature_extractor
     )
+
     # Train!
     print("[INFO] Starting training...")
     trainer.train()

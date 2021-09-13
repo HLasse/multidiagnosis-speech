@@ -8,6 +8,10 @@ from sklearn.model_selection import train_test_split
 import random
 import re
 
+BOTH_GENDERS = False
+SAVE_IDS = True
+ID_SAVE_PATH = os.path.join("data", "id_train_test_split_males.csv")
+IDS_FROM_CSV = os.path.join("data", "id_train_test_split_males.csv")
 
 def get_id(filename):
     name = filename.split("_")[-2]
@@ -38,7 +42,13 @@ def train_test_split_to_csv(test_ids, train_ids):
     test_ids = pd.DataFrame(test_ids)
     train_ids = pd.DataFrame(train_ids)
     id_split = test_ids.append(train_ids)
-    id_split.to_csv(os.path.join("data", "id_train_test_split.csv"), index=False)
+    id_split.to_csv(ID_SAVE_PATH, index=False)
+
+def get_train_test_from_csv():
+        train_test_df = pd.read_csv(IDS_FROM_CSV)
+        train_ids = train_test_df[train_test_df["split"] == "train"]["ID"].astype(str).tolist()
+        test_ids = train_test_df[train_test_df["split"] == "test"]["ID"].astype(str).tolist()
+        return train_ids, test_ids
 
 if __name__ == "__main__":
     data = os.path.join(os.getcwd(), "data", "autism_data")
@@ -97,21 +107,29 @@ if __name__ == "__main__":
     # only keeping the Danish data
     df = df[df["language"] == "dk"]
 
+    if BOTH_GENDERS:
     # stratifying - sampling 2 females and 4 males from each group
-    unique_ids = pd.DataFrame(df.groupby(["Diagnosis", "Gender"])["ID"].unique()).reset_index()
-    asd_male = sample_ids(unique_ids, "ASD", "Male", k=4)
-    asd_female = sample_ids(unique_ids, "ASD", "Female", k=2)
-    td_male = sample_ids(unique_ids, "TD", "Male", k=4)
-    td_female = sample_ids(unique_ids, "TD", "Female", k=2)
+        unique_ids = pd.DataFrame(df.groupby(["Diagnosis", "Gender"])["ID"].unique()).reset_index()
+        asd_male = sample_ids(unique_ids, "ASD", "Male", k=4)
+        asd_female = sample_ids(unique_ids, "ASD", "Female", k=2)
+        td_male = sample_ids(unique_ids, "TD", "Male", k=4)
+        td_female = sample_ids(unique_ids, "TD", "Female", k=2)
 
-    test_ids = asd_male + asd_female + td_male + td_female
-    all_ids = np.concatenate(unique_ids["ID"].tolist())
+        test_ids = asd_male + asd_female + td_male + td_female
+        all_ids = np.concatenate(unique_ids["ID"].tolist())
 
+    else:
+        df = df[df["Gender"] == "Male"]
+        test_ids = ["109", "121", "126", "127", "135", "211", "212", "219", "228"]
+        all_ids = df["ID"].unique()
+    
     train_ids = [x for x in list(all_ids) if x not in test_ids]
-    #train_test_split_to_csv(test_ids, train_ids)
-    train_test_df = pd.read_csv(os.path.join("data", "id_train_test_split.csv"))
-    train_ids = train_test_df[train_test_df["split"] == "train"]["ID"].astype(str).tolist()
-    test_ids = train_test_df[train_test_df["split"] == "test"]["ID"].astype(str).tolist()
+
+    if SAVE_IDS:
+        train_test_split_to_csv(test_ids, train_ids)
+
+    if IDS_FROM_CSV:
+        train_ids, test_ids = get_train_test_from_csv()
 
     train = df[df["ID"].isin(train_ids)]
     test = df[df["ID"].isin(test_ids)]
@@ -121,10 +139,10 @@ if __name__ == "__main__":
     triangles_train = train[train["Task"] == "triangles"]
     triangles_test = test[test["Task"] == "triangles"]
 
-    stories_train.to_csv(os.path.join("data", "stories_train_data.csv"), index=False)
-    stories_test.to_csv(os.path.join("data", "stories_test_data.csv"), index=False)
-    triangles_train.to_csv(os.path.join("data", "triangles_train_data.csv"), index=False)
-    triangles_test.to_csv(os.path.join("data", "triangles_test_data.csv"), index=False)
+    stories_train.to_csv(os.path.join("data", "splits", f"stories_train_data_gender_{str(BOTH_GENDERS)}.csv"), index=False)
+    stories_test.to_csv(os.path.join("data", "splits", f"stories_test_data_gender_{str(BOTH_GENDERS)}.csv"), index=False)
+    triangles_train.to_csv(os.path.join("data", "splits", f"triangles_train_data_gender_{str(BOTH_GENDERS)}.csv"), index=False)
+    triangles_test.to_csv(os.path.join("data", "splits", f"triangles_test_data_gender_{str(BOTH_GENDERS)}.csv"), index=False)
 
 
 

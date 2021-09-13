@@ -36,3 +36,13 @@ class CTCTrainer(Trainer):
         loss.backward()
 
         return loss.detach()
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        # labels = inputs.pop("labels").to('cuda')
+        labels = inputs['labels'].to('cuda')
+        outputs = model(**inputs) # torch.Size([32, 5])
+        loss_fct = torch.nn.CrossEntropyLoss()
+        loss = loss_fct(outputs['logits'],
+                        labels.argmax(-1).long())
+        
+        return (loss, outputs) if return_outputs else loss
