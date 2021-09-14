@@ -43,6 +43,6 @@ class CTCTrainer(Trainer):
         outputs = model(**inputs) # torch.Size([32, 5])
         loss_fct = torch.nn.CrossEntropyLoss()
         loss = loss_fct(outputs['logits'],
-                        labels.argmax(-1).long())
+                        labels)
         
         return (loss, outputs) if return_outputs else loss

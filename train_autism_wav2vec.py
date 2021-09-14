@@ -34,8 +34,8 @@ FREEZE_BASE_MODEL = False
 INPUT_COL = "file"
 LABEL_COL = "Diagnosis"
 # training params
-EPOCHS = 100
-LEARNING_RATE = 3e-3  # 3e-3
+EPOCHS = 10
+LEARNING_RATE = 1e-3  # 3e-3
 BATCH_SIZE = 2
 
 # model params              # default
@@ -153,7 +153,8 @@ if __name__ == "__main__":
         eval_steps=10,
         logging_steps=10,
         learning_rate=LEARNING_RATE, # play with this (also optimizer and learning schedule)
-        save_total_limit=2
+        save_total_limit=2,
+        load_best_model_at_end=True
     )
 
     trainer = Trainer(

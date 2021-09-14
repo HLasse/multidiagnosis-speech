@@ -12,8 +12,9 @@ import os
 
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
-MODEL_PATH = os.path.join("model", "xlsr_autism", "checkpoint-1000")
-TEST = pd.read_csv(os.path.join("data", "test_data.csv"))
+MODEL_PATH = os.path.join("model", "xlsr_autism_stories", "checkpoint-10")
+TEST = pd.read_csv(os.path.join("data", "splits", "stories_train_data_gender_False.csv"))
+LABEL_COL = "Diagnosis"
 
 def speech_file_to_array_fn(path, sampling_rate):
     speech_array, _sampling_rate = torchaudio.load(path)
@@ -57,7 +58,7 @@ model = Wav2Vec2ForSequenceClassification.from_pretrained(MODEL_PATH).to(device)
 # apply predictions
 test = TEST.apply(add_predicted_and_confidence, axis=1)
 
-print(confusion_matrix(test["label"], test["pred"]))
-print(classification_report(test["label"], test["pred"]))
-acc = accuracy_score(test["label"], test["pred"])
+print(confusion_matrix(test[LABEL_COL], test["pred"]))
+print(classification_report(test[LABEL_COL], test["pred"]))
+acc = accuracy_score(test[LABEL_COL], test["pred"])
 print(f"accuracy: {acc}")

@@ -111,7 +111,7 @@ class DataCollatorCTCWithPaddingKlaam:
         input_features = [{"input_values": feature["input_values"]} for feature in features]
         
         def onehot(lbl):
-            onehot = [0]*5
+            onehot = [0]*2
             onehot[int(lbl)] = 1
             return onehot
         

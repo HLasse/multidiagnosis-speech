@@ -6,6 +6,7 @@ TODO
 
 #from platform import processor
 import numpy as np
+import torch
 import torchaudio
 import os
 from datasets import load_dataset
@@ -13,12 +14,13 @@ from datasets import load_dataset
 from src.data_collator import DataCollatorCTCWithInputPadding, DataCollatorCTCWithPaddingKlaam
 from src.trainer import CTCTrainer
 from src.processor import CustomWav2Vec2Processor
+from src.model import Wav2Vec2ForSequenceClassification
 from dataclasses import dataclass, field
 
 from transformers import (
     AutoConfig,
     Wav2Vec2FeatureExtractor,
-    Wav2Vec2ForSequenceClassification,
+#    Wav2Vec2ForSequenceClassification,
     EvalPrediction,
     TrainingArguments,
     Trainer)
@@ -31,6 +33,7 @@ MODEL_NAME = "facebook/wav2vec2-large-xlsr-53"
 OUTPUT_DIR = os.path.join("model", "xlsr_autism_stories")
 TRAIN = os.path.join("data", "splits", "stories_train_data_gender_False.csv")
 VALIDATION = os.path.join("data", "splits", "stories_test_data_gender_False.csv")
+RUN_NAME = "frozen_encoder_0.1_final_drop_stories"
 
 FREEZE_ENCODER = True
 FREEZE_BASE_MODEL = False
@@ -39,15 +42,16 @@ INPUT_COL = "file"
 LABEL_COL = "Diagnosis"
 # training params
 EPOCHS = 100
-LEARNING_RATE = 3e-3  # 3e-3
+LEARNING_RATE = 2e-4  # 3e-3
 BATCH_SIZE = 2
 
 # model params              # default
-ATTENTION_DROPOUT = 0.01     # 0.1
-HIDDEN_DROPOUT = 0.01        # 0.1
-FEAT_PROJ_DROPOUT=0.0       # 0.1
+ATTENTION_DROPOUT = 0.1     # 0.1
+HIDDEN_DROPOUT = 0.1        # 0.1
+FINAL_DROPOUT = 0.1 
+FEAT_PROJ_DROPOUT=0.2       # 0.1
 MASK_TIME_PROB=0.05         # 0.075
-LAYERDROP = 0.01             # 0.1
+LAYERDROP = 0.1             # 0.1
 GRADIENT_CHECKPOINTING=True # False
 CTC_LOSS_REDUCTION="sum"   # "sum"   - try "mean"
 
@@ -57,7 +61,8 @@ params = {"attention_dropout" : ATTENTION_DROPOUT,
           "mask_time_prob" : MASK_TIME_PROB,
           "layerdrop" : LAYERDROP,
           "gradient_checkpointing" : GRADIENT_CHECKPOINTING,
-          "ctc_loss_reduction" : CTC_LOSS_REDUCTION}
+          "ctc_loss_reduction" : CTC_LOSS_REDUCTION,
+          "final_dropout" : FINAL_DROPOUT}
 
 # Preprocessing functions
 def speech_file_to_array(path):
@@ -149,19 +154,21 @@ if __name__ == "__main__":
 
     # instantiate a data collator that takes care of correctly padding the input data
     # data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
-    data_collator = DataCollatorCTCWithPaddingKlaam(processor=processor, padding=True)
+    data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
 
     if FREEZE_ENCODER and not FREEZE_BASE_MODEL:
         model.freeze_feature_extractor()
+        print("Freezing encoder...")
     if FREEZE_BASE_MODEL:
         model.freeze_base_model()
+        print("Freezing entire base model...")
  
     # set arguments to Trainer
     training_args = TrainingArguments(
         output_dir = OUTPUT_DIR,
         #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
         per_device_train_batch_size=BATCH_SIZE,
-        gradient_accumulation_steps=2,
+        gradient_accumulation_steps=3, # try increasing to reduce memory 
         evaluation_strategy="steps",
         num_train_epochs=EPOCHS,
         fp16=True,
@@ -169,14 +176,17 @@ if __name__ == "__main__":
         eval_steps=10,
         logging_steps=10,
         learning_rate=LEARNING_RATE, # play with this (also optimizer and learning schedule)
-        save_total_limit=2
+        save_total_limit=2,
+        load_best_model_at_end=True,
+        run_name = RUN_NAME
     )
+    torch.distributed.launch
 
-    trainer = CTCTrainer(
+    trainer = Trainer(
         model=model,
         data_collator=data_collator,
         args=training_args,
-        computete_metrics=compute_metrics,
+        compute_metrics=compute_metrics,
         train_dataset=train,
         eval_dataset=val,
         tokenizer=processor.feature_extractor
