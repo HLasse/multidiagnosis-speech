@@ -4,13 +4,19 @@ TODO
 - experiment with parameters
 """
 
+
+error_path = '/home/lasse/wav2vec_finetune/data/autism_data/dk_stories_131A_1.wav'
+
 #from platform import processor
 import numpy as np
 import torch
 import torchaudio
 import os
 from datasets import load_dataset
+import wandb
+from speechpy.processing import stack_frames
 # from model import Wav2Vec2ForSpeechClassification
+
 from src.data_collator import DataCollatorCTCWithInputPadding, DataCollatorCTCWithPaddingKlaam
 from src.trainer import CTCTrainer
 from src.processor import CustomWav2Vec2Processor
@@ -42,8 +48,13 @@ INPUT_COL = "file"
 LABEL_COL = "Diagnosis"
 # training params
 EPOCHS = 100
-LEARNING_RATE = 2e-4  # 3e-3
-BATCH_SIZE = 2
+LEARNING_RATE = 3e-3  # 3e-3
+BATCH_SIZE = 16
+
+# windowing parameters
+USE_WINDOWING = True
+WINDOW_LENGTH = 5 # window length in seconds
+STRIDE_LENGTH = 1 # stride length in seconds
 
 # model params              # default
 ATTENTION_DROPOUT = 0.1     # 0.1
@@ -72,6 +83,54 @@ def speech_file_to_array(path):
     speech = resampler(speech_array).squeeze().numpy()
     return speech
 
+def stack_speech_file_to_array(path):
+    speech_array, sampling_rate = torchaudio.load(path)
+    windowed_arrays = stack_frames(speech_array.squeeze(), sampling_frequency=sampling_rate,
+                        frame_length=WINDOW_LENGTH, frame_stride=STRIDE_LENGTH)
+    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
+    windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
+    return windowed_arrays
+    # https://github.com/DReiser7/w2v_did/blob/master/eval_english_window_length.py
+
+
+
+def flatten(t):
+    return [item for sublist in t for item in sublist]
+
+def preprocess_stacked_speech_files(batch):
+    speech_list = [stack_speech_file_to_array(path) for path in batch[INPUT_COL]]
+    labels = [label_to_id(label, label_list) for label in batch[LABEL_COL]]
+    n_windows = [len(window) for window in speech_list]
+
+
+    processed_list = [processor(speech_window, sampling_rate=target_sampling_rate) for speech_window in speech_list]
+
+    out = {"input_values" : [], "attention_mask" : [], "labels" : []}
+    # looping through list of processed stacked speech arrays
+    for i, processed_speech in enumerate(processed_list):
+        # un-nesting the stacked time windows 
+        for key, value in processed_speech.items():
+            out[key].append(value)
+        # making sure each window has the right label
+        out["labels"].append([labels[i]] * n_windows[i])
+    # un-nesting list again
+    for key, value in out.items():
+        out[key] = flatten(value)
+
+    return out
+
+
+# path = dataset["train"]["file"][0]
+# sp = stack_speech_file_to_array(path)
+# sp = speech_file_to_array(path)
+
+# INPUT_COL
+# batch = {"file" : [dataset["train"]["file"][0], dataset["train"]["file"][1]],
+#          "Diagnosis" : ["ASD", "TD"]}
+
+# goal_out = preprocess(batch)
+
+
 def label_to_id(label, label_list):
     "map label to id int"
     return label_list.index(label)
@@ -95,10 +154,12 @@ def compute_metrics(pred):
     labels = pred.label_ids.argmax(-1)
     preds = pred.predictions.argmax(-1)
     acc = accuracy_score(labels, preds)
-    report = classification_report(labels, preds)
-    matrix = confusion_matrix(labels, preds)
-    print(matrix)
-    print(report)
+    wandb.log(
+        {"conf_mat" : wandb.plot.confusion_matrix(probs=None, y_true=labels, preds=preds, class_names=label_list)}
+    )
+    wandb.log(
+        {"precision_recall" : wandb.plot.pr_curve(y_true=labels, preds=preds, class_names=label_list)}
+    )
     return {"accuracy": acc}
 
 
@@ -132,8 +193,13 @@ if __name__ == "__main__":
 
     # preprocess datasets
     print("[INFO] Preprocessing dataset...")
-    train = train.map(preprocess, batched=True)
-    val = val.map(preprocess, batched=True)
+    if USE_WINDOWING:
+        print(f"[INFO] Using windows of size {WINDOW_LENGTH} and stride {STRIDE_LENGTH}")
+        train = train.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["train"].column_names)
+        val = val.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["test"].column_names)
+    else:
+        train = train.map(preprocess, batched=True)
+        val = val.map(preprocess, batched=True)
 
     ################### LOAD MODEL
     #######
@@ -168,7 +234,7 @@ if __name__ == "__main__":
         output_dir = OUTPUT_DIR,
         #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
         per_device_train_batch_size=BATCH_SIZE,
-        gradient_accumulation_steps=3, # try increasing to reduce memory 
+        gradient_accumulation_steps=2, # try increasing to reduce memory 
         evaluation_strategy="steps",
         num_train_epochs=EPOCHS,
         fp16=True,
@@ -180,7 +246,6 @@ if __name__ == "__main__":
         load_best_model_at_end=True,
         run_name = RUN_NAME
     )
-    torch.distributed.launch
 
     trainer = Trainer(
         model=model,
