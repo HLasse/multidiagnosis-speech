@@ -1,4 +1,9 @@
-"""evaluate model performance"""
+"""evaluate model performance
+TODO
+- Evaluate by window and by participant (rewrite to make windows)
+"""
+
+
 import torch
 import torch.nn.functional as F
 import torchaudio

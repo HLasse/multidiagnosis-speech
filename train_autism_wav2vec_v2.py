@@ -1,10 +1,9 @@
 """Train wav2vec for autism classification (on both stories and triangles task - probably do one for each)
 TODO
-- try the custom Wav2Vec2Processor and CTCTrainer and DataCollatorCTCWithPaddingKlaam
-- experiment with parameters
+- experiment with parameters (lower learning rate)
+- test if predictions are made correctly in the eval function (np.argmax)
 """
 
-#from platform import processor
 import numpy as np
 import torch
 import torchaudio
@@ -37,6 +36,7 @@ OUTPUT_DIR = os.path.join("model", "xlsr_autism_stories")
 TRAIN = os.path.join("data", "splits", "stories_train_data_gender_False.csv")
 VALIDATION = os.path.join("data", "splits", "stories_test_data_gender_False.csv")
 RUN_NAME = "frozen_encoder_0.1_final_drop_stories"
+RUN_NAME = "debug"
 
 FREEZE_ENCODER = True
 FREEZE_BASE_MODEL = False
@@ -148,7 +148,7 @@ def preprocess(batch):
     out["labels"] = list(labels)
     return out
 
-# which metrics to compute for evaluation
+# which metrics to compute for evaluationz
 def compute_metrics(p: EvalPrediction):
     preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
     preds = np.argmax(preds, axis=1)
