@@ -4,9 +4,6 @@ TODO
 - experiment with parameters
 """
 
-
-error_path = '/home/lasse/wav2vec_finetune/data/autism_data/dk_stories_131A_1.wav'
-
 #from platform import processor
 import numpy as np
 import torch
@@ -14,13 +11,13 @@ import torchaudio
 import os
 from datasets import load_dataset
 import wandb
-from speechpy.processing import stack_frames
 # from model import Wav2Vec2ForSpeechClassification
 
 from src.data_collator import DataCollatorCTCWithInputPadding, DataCollatorCTCWithPaddingKlaam
 from src.trainer import CTCTrainer
 from src.processor import CustomWav2Vec2Processor
 from src.model import Wav2Vec2ForSequenceClassification
+from src.make_windows import stack_frames
 from dataclasses import dataclass, field
 
 from transformers import (
@@ -85,7 +82,7 @@ def speech_file_to_array(path):
 
 def stack_speech_file_to_array(path):
     speech_array, sampling_rate = torchaudio.load(path)
-    windowed_arrays = stack_frames(speech_array.squeeze(), sampling_frequency=sampling_rate,
+    windowed_arrays = stack_frames(speech_array.squeeze(), sampling_rate=sampling_rate,
                         frame_length=WINDOW_LENGTH, frame_stride=STRIDE_LENGTH)
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
@@ -93,9 +90,9 @@ def stack_speech_file_to_array(path):
     # https://github.com/DReiser7/w2v_did/blob/master/eval_english_window_length.py
 
 
-
 def flatten(t):
     return [item for sublist in t for item in sublist]
+
 
 def preprocess_stacked_speech_files(batch):
     speech_list = [stack_speech_file_to_array(path) for path in batch[INPUT_COL]]
@@ -103,9 +100,15 @@ def preprocess_stacked_speech_files(batch):
     n_windows = [len(window) for window in speech_list]
 
 
-    processed_list = [processor(speech_window, sampling_rate=target_sampling_rate) for speech_window in speech_list]
+    processed_list = [processor(speech_window, sampling_rate=target_sampling_rate) 
+        for speech_window in speech_list]
+
+    # make 'out' contain metadata
+    # try using + 
 
     out = {"input_values" : [], "attention_mask" : [], "labels" : []}
+    for meta_key in batch.keys():
+        out[meta_key] = []
     # looping through list of processed stacked speech arrays
     for i, processed_speech in enumerate(processed_list):
         # un-nesting the stacked time windows 
@@ -113,19 +116,20 @@ def preprocess_stacked_speech_files(batch):
             out[key].append(value)
         # making sure each window has the right label
         out["labels"].append([labels[i]] * n_windows[i])
+        # adding metadata to be able to reidentify files
+        for meta_key, meta_value in batch.items():
+            out[meta_key].append([meta_value] * n_windows[i])
     # un-nesting list again
     for key, value in out.items():
         out[key] = flatten(value)
 
     return out
 
-
 # path = dataset["train"]["file"][0]
 # sp = stack_speech_file_to_array(path)
 # sp = speech_file_to_array(path)
 
-# INPUT_COL
-# batch = {"file" : [dataset["train"]["file"][0], dataset["train"]["file"][1]],
+# batch = {"file" : [dataset["train"]["file"][1], dataset["train"]["file"][1]],
 #          "Diagnosis" : ["ASD", "TD"]}
 
 # goal_out = preprocess(batch)
@@ -150,17 +154,17 @@ def compute_metrics(p: EvalPrediction):
     preds = np.argmax(preds, axis=1)
     return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
-def compute_metrics(pred):
-    labels = pred.label_ids.argmax(-1)
-    preds = pred.predictions.argmax(-1)
-    acc = accuracy_score(labels, preds)
-    wandb.log(
-        {"conf_mat" : wandb.plot.confusion_matrix(probs=None, y_true=labels, preds=preds, class_names=label_list)}
-    )
-    wandb.log(
-        {"precision_recall" : wandb.plot.pr_curve(y_true=labels, preds=preds, class_names=label_list)}
-    )
-    return {"accuracy": acc}
+# def compute_metrics(pred):
+#     labels = pred.label_ids.argmax(-1)
+#     preds = pred.predictions.argmax(-1)
+#     acc = accuracy_score(labels, preds)
+#     wandb.log(
+#         {"conf_mat" : wandb.plot.confusion_matrix(probs=None, y_true=labels, preds=preds, class_names=label_list)}
+#     )
+#     wandb.log(
+#         {"precision_recall" : wandb.plot.pr_curve(y_true=labels, preds=preds, class_names=label_list)}
+#     )
+#     return {"accuracy": acc}
 
 
 if __name__ == "__main__":
@@ -185,6 +189,8 @@ if __name__ == "__main__":
     label_list.sort()
     num_labels = len(label_list)
 
+    # train = train.select([0])
+
     # Load feature extractor
     feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
     processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
@@ -196,10 +202,13 @@ if __name__ == "__main__":
     if USE_WINDOWING:
         print(f"[INFO] Using windows of size {WINDOW_LENGTH} and stride {STRIDE_LENGTH}")
         train = train.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["train"].column_names)
-        val = val.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["test"].column_names)
+        val = val.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["validation"].column_names)
     else:
         train = train.map(preprocess, batched=True)
         val = val.map(preprocess, batched=True)
+
+    # shuffle rows of training set (necesarry?)
+    train = train.shuffle(seed=42)
 
     ################### LOAD MODEL
     #######
