@@ -43,6 +43,7 @@ python evaluate.py
 - https://www.zhaw.ch/storage/engineering/institute-zentren/cai/BA21_Speech_Classification_Reiser_Fivian.pdf
 - https://github.com/DReiser7/w2v_did
 - https://github.com/ARBML/klaam
+- https://github.com/talhanai/speech-nlp-datasets
 
 ## Notes:
 - Look into SpecAugment for finetuning: https://arxiv.org/abs/1904.08779 (on by default)
