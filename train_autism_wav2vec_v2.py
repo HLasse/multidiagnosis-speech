@@ -87,7 +87,6 @@ def stack_speech_file_to_array(path):
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
     return windowed_arrays
-    # https://github.com/DReiser7/w2v_did/blob/master/eval_english_window_length.py
 
 
 def flatten(t):
