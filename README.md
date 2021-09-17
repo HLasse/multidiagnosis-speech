@@ -2,9 +2,12 @@
 
 Test finetuning of XLSR (multilingual wav2vec 2.0) for other speech classification tasks
 
-[X] Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
-
-[] Finetune for autism detection
+- [X] Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
+- [X] Finetune for autism detection
+- [] Clean up directory
+- [] Make training and evaluation scripts runnable with cmd line / shell scripts
+- [] Add random noise on training samples
+- [] Make baseline models
 ```
 # make virtual env
 pip install -r requirements.txt

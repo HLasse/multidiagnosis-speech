@@ -20,7 +20,7 @@ from src.make_windows import stack_frames
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
 
 MODEL_PATH = os.path.join("model", "xlsr_autism_stories", "checkpoint-470")
-TEST = pd.read_csv(os.path.join("data", "splits", "stories_train_data_gender_False.csv"))
+TEST = pd.read_csv(os.path.join("data", "splits", "stories_test_data_gender_False.csv"))
 LABEL_COL = "Diagnosis"
 
 USE_WINDOWING = True
