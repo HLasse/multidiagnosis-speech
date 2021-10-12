@@ -25,6 +25,7 @@ python evaluate.py
 - 11/9: success! Trained a sex classifier on a small dataset that performs soso. Everything seems to work though.
 
 ## TODO
+- Split this repo into two separate or make text/audio partition
 - Train on larger dataset and more interesting problem
 - Set up benchmark models
 
