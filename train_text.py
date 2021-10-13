@@ -1,16 +1,14 @@
-import pandas as pd
 from pathlib import Path
-from transformers import (Trainer, TrainingArguments,
-                          AutoModelForSequenceClassification, 
-                          AutoTokenizer)
-from datasets import TextDataset
+from transformers import (TrainingArguments, Trainer,
+                          AutoModelForSequenceClassification)
+from utils_text import make_dataset
+import numpy as np
+import json
 import argparse
 
 # TO DO:
-# Make category-label dict - Check multiclass
-# Add other arguments to trainer and cmdline - See Wav2Vec
-# Make compute metrics function - See Wav2Vec
 # Set up WandB - See Wav2Vec
+# Metrics function - See Wav2Vec
 # Make splits [W/ Riccardo and Lasse]
 # Add other models [w/ Riccardo and Lasse]
 # Bash script [When everything else is ready]
@@ -38,33 +36,24 @@ parser.add_argument('--weight-decay',
 parser.add_argument('--logging-steps', 
                     type=int, default=10,
                     help='Log every')
+parser.add_argument('--gradient-accumulation-steps', 
+                    type=int, default=1,
+                    help='Steps for gradient accumulation')
+parser.add_argument('--num-labels', 
+                    type=int, default=4,
+                    help='Steps for gradient accumulation')
+parser.add_argument('--problem-type', 
+                    type=str, default='multi_label_classification',
+                    help='Is the problem single_label_classification ' 
+                         'or multi_level_classification?')
 
-# Dataset creation
-def _get_data(df, ids):
-    sub_df = df[df['Subject'].isin(ids)]
-    lst = sub_df[['Transcript', 'Diagnosis']].to_records()
-    return zip(*lst)
 
+# Which metrics to compute for evaluation
+def compute_metrics(p):
+    preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+    preds = np.argmax(preds, axis=1)
+    return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
-def _make_dataset(checkpoint):
-    ''' Make dataset from transcripts and train / val ids 
-    Args:
-        checkpoint: model checkpoint
-    '''
-    DPATH = Path('data') / 'transcripts' / 'processed'
-    train_ids = pd.read_csv(DPATH/'train_ids.txt') 
-    train_ids = pd.read_csv(DPATH/'val_ids.txt') 
-    data = pd.read_csv(DPATH/'data.csv')
-    train_txt, train_lab = _get_data(data, train_ids)
-    val_txt, val_lab = _get_data(data, train_ids)
-
-    tokenizer = AutoTokenizer.from_pretrained(checkpoint)
-    train_enc = tokenizer(train_txt, truncation=True, padding=True)
-    val_enc = tokenizer(val_txt, truncation=True, padding=True)
-
-    train_dataset = TextDataset(train_enc, train_lab)
-    val_dataset = TextDataset(val_enc, val_lab)
-    return train_dataset, val_dataset
 
 
 # Training module
@@ -76,7 +65,10 @@ def _make_trainer(model_id,
                   eval_examples_per_device,
                   warmup_steps, 
                   weight_decay,
-                  logging_steps):
+                  logging_steps,
+                  gradient_accumulation_steps,
+                  num_labels,
+                  problem_type):
     ''' Train model 
     Args:
         model_id: unique model name
@@ -91,19 +83,40 @@ def _make_trainer(model_id,
         logging_steps: how often to log
     '''
 
+    # Make directories
+    logpath = Path('logs') / f'{model_id}'
+    respath = Path('models') / f'{model_id}'
+    logpath.mkdir(exist_ok=True, parents=True)
+    respath.mkdir(exist_ok=True, parents=True)
+
+    # Label mapping
+    ldict = json.load(open('data/transcripts/labels.json')) # hard-coded right now...
+    if 'multi' in problem_type: # seems like multiclass expects float labels?
+        ldict = {lab:float(id) for lab,id in ldict.items()}
+    rev_ldict = dict(zip(ldict.values(), ldict.keys()))
+
+    # Set up trainer
     training_args = TrainingArguments(
-        output_dir=f'./results/{model_id}',  # does it create it?        
+        report_to='wandb',
+        output_dir=str(logpath),      
         num_train_epochs=epochs,
         per_device_train_batch_size=train_examples_per_device,
         per_device_eval_batch_size=eval_examples_per_device,
         warmup_steps=warmup_steps,
         weight_decay=weight_decay,
-        logging_dir=f'./logs/{model_id}', # does it create it?
+        logging_dir=str(respath),
         logging_steps=logging_steps,
-        # Add other and pass as cmdline args
+        evaluation_strategy='epoch',
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        run_name=model_id,
         )
 
-    model = AutoModelForSequenceClassification.from_pretrained(checkpoint)
+    model = AutoModelForSequenceClassification.from_pretrained(checkpoint,
+                                                               num_labels=num_labels, 
+                                                               id_to_label=rev_ldict,
+                                                               label_to_id=ldict,
+                                                               problem_type=problem_type)
+
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -123,16 +136,22 @@ def _compute_metrics():
 # Exec
 if __name__=='__main__':
     args = parser.parse_args()
-    train_ds, val_ds = _make_dataset(args.checkpoint)
+    train_ds, val_ds = (make_dataset(args.checkpoint, s) 
+                        for s in ['train', 'val'])
     trainer = _make_trainer(args.model_id,
                             args.checkpoint,
-                            train_ds, val_ds, 
+                            train_ds, 
+                            val_ds, 
                             args.epochs, 
                             args.train_examples_per_device, 
                             args.eval_examples_per_device,
                             args.warmup_steps,
                             args.weight_decay,
-                            args.logging_steps)
+                            args.logging_steps,
+                            args.gradient_accumulation_steps,
+                            args.num_labels)
     trainer.train()
-    # Compute metrics
+    # Add metrics
+    # Handle evaluation
+    # Add evaluation
     

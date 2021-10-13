@@ -3,7 +3,7 @@ from pathlib import Path
 
 # PREPROC NEEDED
 # Strip (*) and blanks at the end
-# Remoce [sic]
+# Remove [sic]
 # Remove ((mumler)) and (griner)
 # Vowel transcription is not uniform
 
