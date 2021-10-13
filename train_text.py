@@ -7,12 +7,12 @@ from datasets import TextDataset
 import argparse
 
 # TO DO:
-# Make splits [W/ Riccardo and Lasse]
-# Add other models [w/ Riccardo and Lasse]
 # Make category-label dict - Check multiclass
 # Add other arguments to trainer and cmdline - See Wav2Vec
 # Make compute metrics function - See Wav2Vec
 # Set up WandB - See Wav2Vec
+# Make splits [W/ Riccardo and Lasse]
+# Add other models [w/ Riccardo and Lasse]
 # Bash script [When everything else is ready]
 
 # Initialize parser
@@ -67,6 +67,7 @@ def _make_dataset(checkpoint):
     return train_dataset, val_dataset
 
 
+# Training module
 def _make_trainer(model_id,
                   checkpoint, 
                   train_dataset, val_dataset,
@@ -113,11 +114,13 @@ def _make_trainer(model_id,
     return trainer
 
 
+# Set up evaluation metrics
 def _compute_metrics():
     # TO DO
     pass
 
 
+# Exec
 if __name__=='__main__':
     args = parser.parse_args()
     train_ds, val_ds = _make_dataset(args.checkpoint)
