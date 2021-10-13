@@ -6,8 +6,7 @@ import numpy as np
 import json
 import argparse
 
-# TO DO:
-# Set up WandB - See Wav2Vec
+# UP NEXT
 # Metrics function - See Wav2Vec
 # Make splits [W/ Riccardo and Lasse]
 # Add other models [w/ Riccardo and Lasse]
@@ -50,10 +49,10 @@ parser.add_argument('--problem-type',
 
 # Which metrics to compute for evaluation
 def compute_metrics(p):
-    preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-    preds = np.argmax(preds, axis=1)
-    return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
-
+    pass
+    #preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+    #preds = np.argmax(preds, axis=1)
+    #return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
 
 
 # Training module
@@ -97,7 +96,6 @@ def _make_trainer(model_id,
 
     # Set up trainer
     training_args = TrainingArguments(
-        report_to='wandb',
         output_dir=str(logpath),      
         num_train_epochs=epochs,
         per_device_train_batch_size=train_examples_per_device,
@@ -127,12 +125,6 @@ def _make_trainer(model_id,
     return trainer
 
 
-# Set up evaluation metrics
-def _compute_metrics():
-    # TO DO
-    pass
-
-
 # Exec
 if __name__=='__main__':
     args = parser.parse_args()
@@ -151,7 +143,4 @@ if __name__=='__main__':
                             args.gradient_accumulation_steps,
                             args.num_labels)
     trainer.train()
-    # Add metrics
-    # Handle evaluation
-    # Add evaluation
     
