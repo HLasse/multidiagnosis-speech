@@ -8,6 +8,7 @@ import argparse
 from datasets import load_metric
 
 # UP NEXT
+# Missing: put inputs and models to cuda if needed (or does the trainer handle that automatically?)
 # Make splits [W/ Riccardo and Lasse]
 # Add other models [w/ Riccardo and Lasse]
 # Bash script [When everything else is ready]
