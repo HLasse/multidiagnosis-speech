@@ -58,6 +58,7 @@ def compute_metrics(pred):
     f1_score = f1.compute(predictions=predictions, references=labels)["f1"]
     return {"precision": precision, "recall": recall, "f1": f1_score}
 
+
 # Training module
 def _make_trainer(model_id,
                   checkpoint, 
