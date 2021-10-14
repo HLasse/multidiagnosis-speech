@@ -1,5 +1,6 @@
-"""Train wav2vec for autism classification (on both stories and triangles task - probably do one for each)
+""" Train XLSR model on the training set
 TODO
+- finalize the argparse (hf argparser)
 - experiment with parameters (lower learning rate)
 - test if predictions are made correctly in the eval function (np.argmax)
 """
