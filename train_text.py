@@ -5,9 +5,9 @@ from utils_text import make_dataset
 import numpy as np
 import json
 import argparse
+from datasets import load_metric
 
 # UP NEXT
-# Metrics function - See Wav2Vec
 # Make splits [W/ Riccardo and Lasse]
 # Add other models [w/ Riccardo and Lasse]
 # Bash script [When everything else is ready]
@@ -48,12 +48,15 @@ parser.add_argument('--problem-type',
 
 
 # Which metrics to compute for evaluation
-def compute_metrics(p):
-    pass
-    #preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-    #preds = np.argmax(preds, axis=1)
-    #return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
-
+def compute_metrics(pred):
+    prec, rec, f1 = (load_metric(m) 
+                     for m in ('precision', 'recall', 'f1'))
+    logits, labels = pred
+    predictions = np.argmax(logits, axis=-1)
+    precision = prec.compute(predictions=predictions, references=labels)["precision"]
+    recall = rec.compute(predictions=predictions, references=labels)["recall"]
+    f1_score = f1.compute(predictions=predictions, references=labels)["f1"]
+    return {"precision": precision, "recall": recall, "f1": f1_score}
 
 # Training module
 def _make_trainer(model_id,
@@ -119,7 +122,8 @@ def _make_trainer(model_id,
         model=model,
         args=training_args,
         train_dataset=train_dataset,
-        eval_dataset=val_dataset
+        eval_dataset=val_dataset,
+        compute_metrics=compute_metrics,
         ) 
     
     return trainer
