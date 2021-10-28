@@ -1,6 +1,8 @@
 import numpy as np
 import math
 
+# test against librosa.util.frame
+
 sig = np.arange(0, 20)
 sampling_rate = 1
 frame_length = 5

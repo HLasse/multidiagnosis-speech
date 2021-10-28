@@ -4,8 +4,9 @@ TODO
 - experiment with parameters (lower learning rate)
 - test if predictions are made correctly in the eval function (np.argmax)
 """
+import sys
+import logging
 
-from importlib_metadata import metadata
 import numpy as np
 import torch
 import torchaudio
@@ -21,6 +22,7 @@ from src.model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 from dataclasses import dataclass, field
 
+import transformers
 from transformers import (
     HfArgumentParser,
     AutoConfig,
@@ -28,22 +30,24 @@ from transformers import (
 #    Wav2Vec2ForSequenceClassification,
     EvalPrediction,
     TrainingArguments,
-    Trainer)
+    Trainer,
+    set_seed)
+
+# implement option to resume from checkpoint
+from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
 from typing import Union
 
-from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
+#from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
 
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class IOArguments:
     model_name: str = field(
         default="facebook/wav2vec2-large-xlsr-53",
         metadata={"help": "path to pretrained model or identifer from huggingface hub"}
-    )
-    output_dir: str = field(
-        default=os.path.join("model", "wav2vec2-large-xlsr-53_finetune"),
-        metadata={"help": "path to output directory"}
     )
     train: str = field(
         default=os.path.join("data", "splits", "train.csv"),
@@ -53,10 +57,6 @@ class IOArguments:
         default=os.path.join("data", "splits", "val.csv"),
         metadata={"help": "path to validation data csv"}
     )
-    run_name: str = field(
-        default="wav2vec2-large-xlsr-53_finetune",
-        metadata={"help": "name of run on wandb"}
-    )
     input_col: str = field(
         default="file",
         metadata={"help": "name of column in csv with input files"}
@@ -65,7 +65,26 @@ class IOArguments:
         default="Diagnosis",
         metadata={"help": "name of column in csv with labels"}
     )
-
+    use_windowing: bool = field(
+        default=True,
+        metadata={"help": "segment files into windows"}
+    )
+    window_length: int = field(
+        default=5,
+        metadata={"help": "window length in seconds"}
+    )
+    stride_length: Union[int, float] = field(
+        default=1.0,
+        metadata={"help": "stride length in seconds"}
+    )
+    def __post_init__(self):
+        if self.train is None or self.validation is None:
+            raise ValueError("Need a training and a validation file")
+        else:
+            extension = self.train_file.split(".")[-1]
+            assert extension in ["csv"], "`train` should be a csv file."
+            extension = self.validation_file.split(".")[-1]
+            assert extension in ["csv"], "`validation` should be a csv file."
 
 @dataclass
 class ModelArguments:
@@ -96,15 +115,11 @@ class ModelArguments:
     gradient_checkpointing: bool = field(
         default=True,
         metadata={"help": "enable gradient checkpointing"}
-    ),
+    )
     ctc_loss_reduction: str = field(
         default="sum",
         metadata={"help": "reduction for ctc loss"}
     )
-
-
-@dataclass
-class TrainingArguments:
     freeze_encoder: bool = field(
         default=True,
         metadata={"help": "freeze encoder weights during training"}
@@ -113,55 +128,8 @@ class TrainingArguments:
         default=False,
         metadata={"help": "freeze entire base model weights during training"}
     )
-    epochs: int = field(
-        default=100,
-        metadata={"help": "number of epochs to train"}
-    )
-    learning_rate: float = field(
-        default=3e-3,
-        metadata={"help": "learning rate"}
-    )
-    batch_size: int = field(
-        default=16,
-        metadata={"help": "batch size"}
-    )
-    use_windowing: bool = field(
-        default=True,
-        metadata={"help": "segment files into windows"}
-    )
-    window_length: int = field(
-        default=5,
-        metadata={"help": "window length in seconds"}
-    )
-    stride_length: Union[int, float] = field(
-        default=1.0,
-        metadata={"help": "stride length in seconds"}
-    )
-
-FREEZE_ENCODER = True
-FREEZE_BASE_MODEL = False
-# specify input/label columns
-# INPUT_COL = "file"
-# LABEL_COL = "Diagnosis"
-# training params
-EPOCHS = 100
-LEARNING_RATE = 3e-3  # 3e-3
-BATCH_SIZE = 16
-
-# windowing parameters
-USE_WINDOWING = True
-WINDOW_LENGTH = 5 # window length in seconds
-STRIDE_LENGTH = 1 # stride length in seconds
 
 
-params = {"attention_dropout" : ATTENTION_DROPOUT,
-          "hidden_dropout" : HIDDEN_DROPOUT,
-          "feat_proj_dropout" : FEAT_PROJ_DROPOUT,
-          "mask_time_prob" : MASK_TIME_PROB,
-          "layerdrop" : LAYERDROP,
-          "gradient_checkpointing" : GRADIENT_CHECKPOINTING,
-          "ctc_loss_reduction" : CTC_LOSS_REDUCTION,
-          "final_dropout" : FINAL_DROPOUT}
 
 # Preprocessing functions
 def speech_file_to_array(path):
@@ -174,7 +142,7 @@ def speech_file_to_array(path):
 def stack_speech_file_to_array(path):
     speech_array, sampling_rate = torchaudio.load(path)
     windowed_arrays = stack_frames(speech_array.squeeze(), sampling_rate=sampling_rate,
-                        frame_length=WINDOW_LENGTH, frame_stride=STRIDE_LENGTH)
+                        frame_length=io_args.window_length, frame_stride=io_args.stride_length)
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
     return windowed_arrays
@@ -185,8 +153,8 @@ def flatten(t):
 
 
 def preprocess_stacked_speech_files(batch):
-    speech_list = [stack_speech_file_to_array(path) for path in batch[INPUT_COL]]
-    labels = [label_to_id(label, label_list) for label in batch[LABEL_COL]]
+    speech_list = [stack_speech_file_to_array(path) for path in batch[io_args.input_col]]
+    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
     n_windows = [len(window) for window in speech_list]
 
 
@@ -215,15 +183,6 @@ def preprocess_stacked_speech_files(batch):
 
     return out
 
-# path = dataset["train"]["file"][0]
-# sp = stack_speech_file_to_array(path)
-# sp = speech_file_to_array(path)
-
-# batch = {"file" : [dataset["train"]["file"][1], dataset["train"]["file"][1]],
-#          "Diagnosis" : ["ASD", "TD"]}
-
-# goal_out = preprocess(batch)
-
 
 def label_to_id(label, label_list):
     "map label to id int"
@@ -231,8 +190,8 @@ def label_to_id(label, label_list):
 
 def preprocess(batch):
     "preprocess hf dataset/load data"
-    speech_list = [speech_file_to_array(path) for path in batch[INPUT_COL]]
-    labels = [label_to_id(label, label_list) for label in batch[LABEL_COL]]
+    speech_list = [speech_file_to_array(path) for path in batch[io_args.input_col]]
+    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
     
     out = processor(speech_list, sampling_rate=target_sampling_rate)
     out["labels"] = list(labels)
@@ -258,14 +217,43 @@ def compute_metrics(p: EvalPrediction):
 
 
 if __name__ == "__main__":
+    # see possible arguments by passing --help to the script
+    parser = HfArgumentParser((IOArguments, ModelArguments, TrainingArguments))
+    if len(sys.argv) == 2 and sys.argv[1].endswith(".json"):
+        # loading parameters from json config file if supplied
+        io_args, model_args, training_args = parser.parse_json_file(json_file=os.path.abspath(sys.argv[1]))
+    else:
+        io_args, model_args, training_args = parser.parse_args_into_dataclasses()
+
+    ##### setup logging
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
+        datefmt="%m/%d/%Y %H:%M:%S",
+        handlers=[logging.StreamHandler(sys.stdout)],
+    )
+    logger.setLevel(logging.INFO if is_main_process(training_args.local_rank) else logging.WARN)
+
+    # Log on each process the small summary:
+    logger.warning(
+        f"Process rank: {training_args.local_rank}, device: {training_args.device}, n_gpu: {training_args.n_gpu}"
+        + f"distributed training: {bool(training_args.local_rank != -1)}, 16-bits training: {training_args.fp16}"
+    )
+    # Set the verbosity to info of the Transformers logger (on main process only):
+    if is_main_process(training_args.local_rank):
+        transformers.utils.logging.set_verbosity_info()
+    logger.info("IO arguments %s", io_args)
+    logger.info("Model parameters %s", model_args)
+    logger.info("Training/evaluation parameters %s", training_args)
+    # Set seed before initializing model.
+    set_seed(training_args.seed)
 
     ################### LOAD DATASETS
     #######
     ####
     # load datasets
     data_files = {
-        "train" : TRAIN,
-        "validation" : VALIDATION
+        "train" : io_args.train,
+        "validation" : io_args.validation,
     }
 
     print("[INFO] Loading dataset...")
@@ -274,7 +262,7 @@ if __name__ == "__main__":
     val = dataset["validation"]
 
     # get labels and num labels
-    label_list = train.unique(LABEL_COL)
+    label_list = train.unique(io_args.label_col)
     # sorting for determinism
     label_list.sort()
     num_labels = len(label_list)
@@ -282,15 +270,15 @@ if __name__ == "__main__":
     # train = train.select([0])
 
     # Load feature extractor
-    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained("facebook/wav2vec2-large-xlsr-53")
+    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(io_args.model_name)
     processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
     # need this parameter for preprocessing to resample audio to correct sampling rate
     target_sampling_rate = processor.feature_extractor.sampling_rate
 
     # preprocess datasets
     print("[INFO] Preprocessing dataset...")
-    if USE_WINDOWING:
-        print(f"[INFO] Using windows of size {WINDOW_LENGTH} and stride {STRIDE_LENGTH}")
+    if io_args.use_windowing:
+        print(f"[INFO] Using windows of size {io_args.window_length} and stride {io_args.stride_length}")
         train = train.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["train"].column_names)
         val = val.map(preprocess_stacked_speech_files, batched=True, remove_columns=dataset["validation"].column_names)
     else:
@@ -304,48 +292,39 @@ if __name__ == "__main__":
     #######
     ####
 
+    params = {"attention_dropout" : model_args.attention_dropout,
+          "hidden_dropout" : model_args.hidden_dropout,
+          "feat_proj_dropout" : model_args.feat_proj_dropout,
+          "mask_time_prob" : model_args.mask_time_prob,
+          "layerdrop" : model_args.layerdrop,
+          "gradient_checkpointing" : model_args.gradient_checkpointing,
+          "ctc_loss_reduction" : model_args.ctc_loss_reduction,
+          "final_dropout" : model_args.final_dropout,}
+
     # loading model config
     config = AutoConfig.from_pretrained(
-            MODEL_NAME,
+            io_args.model_name,
             num_labels=num_labels,
             label2id={label: i for i, label in enumerate(label_list)},
             id2label={i: label for i, label in enumerate(label_list)},
             finetuning_task="wav2vec2_clf",
-            **params
+            **model_args,
+            #**params
         )
 
-    # load model (with a simple linear projection (input 1024 -> 256 units) and a binary classification on top)
-    model = Wav2Vec2ForSequenceClassification.from_pretrained("facebook/wav2vec2-large-xlsr-53", config=config)
+    # load model (with a simple linear projection (input 1024 -> 256 units) and a classification layer on top)
+    model = Wav2Vec2ForSequenceClassification.from_pretrained(io_args.model_name, config=config)
 
     # instantiate a data collator that takes care of correctly padding the input data
-    # data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
     data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
 
-    if FREEZE_ENCODER and not FREEZE_BASE_MODEL:
+    if training_args.freeze_encoder and not training_args.freeze_base_model:
         model.freeze_feature_extractor()
         print("Freezing encoder...")
-    if FREEZE_BASE_MODEL:
+    if training_args.freeze_base_model:
         model.freeze_base_model()
         print("Freezing entire base model...")
  
-    # set arguments to Trainer
-    training_args = TrainingArguments(
-        output_dir = OUTPUT_DIR,
-        #group_by_length=True, # can speed up training by batching files of similar length to reduce the amount of padding
-        per_device_train_batch_size=BATCH_SIZE,
-        gradient_accumulation_steps=2, # try increasing to reduce memory 
-        evaluation_strategy="steps",
-        num_train_epochs=EPOCHS,
-        fp16=True,
-        save_steps=10,
-        eval_steps=10,
-        logging_steps=10,
-        learning_rate=LEARNING_RATE, # play with this (also optimizer and learning schedule)
-        save_total_limit=2,
-        load_best_model_at_end=True,
-        run_name = RUN_NAME
-    )
-
     trainer = Trainer(
         model=model,
         data_collator=data_collator,
@@ -358,5 +337,23 @@ if __name__ == "__main__":
 
     # Train!
     print("[INFO] Starting training...")
-    trainer.train()
+    train_result = trainer.train()
+    print("[INFO] Training finished!")
+    trainer.save_model()
+    # save the feature_extractor and the tokenizer
+    if is_main_process(training_args.local_rank):
+        feature_extractor.save_pretrained(training_args.output_dir)
+
+    metrics = train_result.metrics
+    metrics["n_train_samples"] = len(train)
+
+    trainer.log_metrics("train", metrics)
+    trainer.save_metrics("train", metrics) # save metrics to file
+    trainer.save_state()
+
+    # evaluate model on test set
     trainer.evaluate()
+    metrics["eval_samples"] = len(val)
+
+    trainer.log_metrics("eval", metrics)
+    trainer.save_metrics("eval", metrics)
