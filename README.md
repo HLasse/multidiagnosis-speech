@@ -48,3 +48,8 @@ python evaluate.py
 - Look into SpecAugment for finetuning: https://arxiv.org/abs/1904.08779 (on by default)
 - How to make the prediction? 
   - Better way than a small feedforward projection? (LSTM or something?)
+
+## Audio augmentation
+- Using torch-audiomentation
+- IR taking from [MIT Acoustical Reverberation Scene Statistics Survey](https://mcdermottlab.mit.edu/Reverb/IR_Survey.html)
+- 

@@ -1,7 +1,7 @@
 {
     "model_name" : "facebook/wav2vec2-large-xlsr-53",
-    "train" : "data/splits/train.csv",
-    "validation" : "data/splits/val.csv",
+    "train" : "data/stories/splits/stories_train_data.csv",
+    "validation" : "data/stories/splits/stories_test_data.csv",
     "input_col" : "file",
     "label_col" : "Diagnosis",
     "use_windowing" : "True",

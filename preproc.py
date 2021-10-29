@@ -81,19 +81,11 @@ if __name__ == "__main__":
     
     df = pd.DataFrame(data_dict)
 
-    unique_ids = []
-    for group in df["origin"].unique():
-        print(group)
-        sub = df[df["origin"] == group]
-        for g in sub["label"].unique():
-            print(g)
-            unique_ids.append(set(sub[sub["label"] == g]["id"]))
-
-    # very large overlap in ids between groups
-    # e.g. ID 423 in both ASD TD and ASD and also in SCHZ SCHZ and TD
+    #  check number of participants in each group + distribution of number of files for each
+    df.groupby(["origin", "label", "id"]).count()["file"].groupby(["origin", "label"]).describe()
 
     ### TODO
-    # make train/val/test split with Roberta and Riccardo
+    # make train/val/test split with Roberta and Riccardo or set up IDS for CV
     # 
 
 
