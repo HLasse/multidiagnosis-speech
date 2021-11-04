@@ -40,6 +40,7 @@ class DataCollatorCTCWithInputPadding:
             If set will pad the sequence to a multiple of the provided value.
             This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
             7.5 (Volta).
+        augmentation_fn (:obj:`callable`, `optional`): which augmentations to apply.
     """
 
     processor: Wav2Vec2Processor
@@ -48,11 +49,16 @@ class DataCollatorCTCWithInputPadding:
     max_length_labels: Optional[int] = None
     pad_to_multiple_of: Optional[int] = None
     pad_to_multiple_of_labels: Optional[int] = None
+    augmentation_fn = None
 
     def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lenghts and need
         # different padding methods
-        input_features = [{"input_values": feature["input_values"]} for feature in features]
+        if self.augmentation_fn:
+            input_features = [{"input_values": self.augmentation_fn(feature["input_values"])} for feature in features]
+        else:
+            input_features = [{"input_values": feature["input_values"]} for feature in features]
+
         label_features = [feature["labels"] for feature in features]
         
         d_type = torch.long if isinstance(label_features[0], int) else torch.float

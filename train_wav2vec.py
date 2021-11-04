@@ -35,6 +35,8 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
+from functools import partial
+
 # implement option to resume from checkpoint
 
 from src.data_collator import (
@@ -127,9 +129,6 @@ def speech_file_to_array(path):
     speech_array, sampling_rate = torchaudio.load(path)
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     speech = resampler(speech_array).squeeze().numpy()
-    if io_args.augmentations:
-        augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
-        speech = augmenter(speech, sample_rate=target_sampling_rate)
     return speech
 
 
@@ -144,12 +143,6 @@ def stack_speech_file_to_array(path):
     )
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
-    if io_args.augmentations:
-        augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
-        windowed_arrays = [
-            augmenter(window, sample_rate=target_sampling_rate)
-            for window in windowed_arrays
-        ]
     return windowed_arrays
 
 
@@ -330,8 +323,13 @@ if __name__ == "__main__":
         io_args.model_name, config=config
     )
 
-    # instantiate a data collator that takes care of correctly padding the input data
-    data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
+    # instantiate a data collator that takes care of correctly padding and optionally augmenting the input data
+    if io_args.augmentations:
+        augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
+        augment_fn = partial(augmenter, sample_rate=target_sampling_rate)
+        data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True, augment_fn=augment_fn)
+    else:
+        data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
 
     if training_args.freeze_encoder and not training_args.freeze_base_model:
         model.freeze_feature_extractor()
