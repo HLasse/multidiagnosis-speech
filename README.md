@@ -1,10 +1,13 @@
 # wav2vec_finetune
 
-
 Test finetuning of XLSR (multilingual wav2vec 2.0) for other speech classification tasks
 
-Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
-
+- [X] Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
+- [X] Finetune for autism detection
+- [] Clean up directory
+- [] Make training and evaluation scripts runnable with cmd line / shell scripts
+- [] Add random noise on training samples
+- [] Make baseline models
 ```
 # make virtual env
 pip install -r requirements.txt
@@ -25,8 +28,7 @@ python evaluate.py
 - 11/9: success! Trained a sex classifier on a small dataset that performs soso. Everything seems to work though.
 
 ## TODO
-- Split this repo into two separate or make text/audio partition
-- Train on larger dataset and more interesting problem
+- Chunk audio files - make predictions in batches of e.g. 5 seconds
 - Set up benchmark models
 
 ## Resources: 
@@ -41,6 +43,7 @@ python evaluate.py
 - https://www.zhaw.ch/storage/engineering/institute-zentren/cai/BA21_Speech_Classification_Reiser_Fivian.pdf
 - https://github.com/DReiser7/w2v_did
 - https://github.com/ARBML/klaam
+- https://github.com/talhanai/speech-nlp-datasets
 
 ## Notes:
 - Look into SpecAugment for finetuning: https://arxiv.org/abs/1904.08779 (on by default)
