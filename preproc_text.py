@@ -1,5 +1,6 @@
 import pandas as pd
 from pathlib import Path
+import seaborn as sns
 
 # PREPROC NEEDED
 # Strip (*) and blanks at the end
@@ -8,9 +9,9 @@ from pathlib import Path
 # Vowel transcription is not uniform
 
 # QUESTIONS
-# What's the deal with missing ids (give Riccardo ids)
-# What is Task NaN? Should it be excluded?
-# What is Trial? Does it matter? Is it each bit of the story?
+# Missing IDS
+# What is Task NaN?
+# What is Trial? Does it matter?
 # Recovered, does it matter?
 
 # NOTES
@@ -20,7 +21,7 @@ from pathlib import Path
 
 # NEXT
 # Modularize this script
-# Convert diagnosis to multi-class
+# Convert diagnosis to multi-class?
 # Get train val test splits
 
 if __name__=='__main__':
@@ -39,7 +40,7 @@ if __name__=='__main__':
              'Unnamed: 11'], axis=1, inplace=True)
 
 
-    df['ID'] = df['ID'].astype(str)
+    df['ID'] = df['ID']# .astype(str)
     df.to_csv(fpath/'processed'/'participants.tsv', 
             sep='\t')
 
@@ -57,6 +58,7 @@ if __name__=='__main__':
 
     # Print excluded info
     print(f'No transcript: {no_trans}')
+    # {448, 321, 322, 325, 327, 328, 42, 44, 303, 308, 309, 312, 313}
     print(f'No participant information: {no_id}')
 
     # Dropping irrelevant columns
@@ -65,10 +67,41 @@ if __name__=='__main__':
                axis=1, inplace=True)
 
     # Log and save
-    print(f'We have {trans.shape} transcripts...')
+    trans = trans[trans['Group']!='Mixed']
+    trans = trans[trans['Diagnosis']!='Mixed']
+    trans = trans[trans['Diagnosis']!='ASD&Schizophrenia']
+    print(f'We have {trans.shape[0]} transcripts...')
 
-    trans.to_csv(fpath/'processed'/'transcripts.tsv', 
-                 sep='\t')
+    # Remap names
+    trans['Group'] = trans['Group'].replace({'Schizophrenia': 'SCHZ', 
+                                             'Depression': 'DEPR'})
+    trans['Diagnosis'] = trans['Diagnosis'].replace({'Schizophrenia': 'SCHZ', 
+                                                     'Depression': 'DEPR', 
+                                                     'Control': 'TD'})
+    trans['id'] = trans['Group'] + '_' + trans['Diagnosis'] + '_' + trans['Study'].astype(str) + '_' + trans['Subject'].astype(str)
+    trans['Transcript'] = trans['Transcript'].astype(str)
+    
+    # Check length and exclude 
+    trans['n_wds'] = trans.Transcript.apply(lambda x: len(x.split())).values
+    print(f'Total transcripts: {trans.shape[0]}')
+    print(f" Below 5 wds: {round((trans['n_wds'] < 5).sum() / trans.shape[0], 2)}, {(trans['n_wds'] < 5).sum()}")
+    print(f" Below 10 wds: {round((trans['n_wds'] < 10).sum() / trans.shape[0], 2)}, {(trans['n_wds'] < 10).sum()}")
+    
+    # Plot histogram
+    trans['Diagnosis_binary'] = trans['Diagnosis'].map({'ASD': '1', 
+                                                        'DEPR': '1', 
+                                                        'SCHZ': '1', 
+                                                        'TD': '0'})
+    sns.displot(data=trans, 
+                x='n_wds', col='Group', 
+                hue='Diagnosis_binary', 
+                binwidth=5)
+
+    # Check
+    trans.drop(['Diagnosis_binary', 
+                'Trial', 
+                'Recovered'], axis=1).to_csv(fpath/'processed'/'transcripts.tsv', 
+                                             sep='\t')
 
     
 
