@@ -23,8 +23,14 @@ def get_metadata(filename):
         id = re.findall("S(\d\d\d)", file.name)
         trial = re.findall("T(\d)", file.name)
     if group == "DEPR":
-        study = "1"
-        id = re.findall("d[pc](\d+)", file.name)
+        if file.parent.parent.name == "depression_1ep":
+            study = "1"
+        if file.parent.parent.name == "depression_chronic":
+            study = "2"
+        # if control
+        else:
+            study = "1"
+        id = re.findall("d[p]?[c]?(\d+)", file.name)
         trial = re.findall("_(\d+)", file.name)
     if not id:
         ValueError(f"No ID found in filename {file}")
@@ -43,6 +49,8 @@ def populate_data_dict(dirs, data_dict):
             data_dict = update_data_dict(data_dict, files, "TD")
         if diagnosis.name == "DEPR":
             files = get_files_from_dir(diagnosis / "depression_1ep")
+            data_dict = update_data_dict(data_dict, files, "DEPR")
+            files = get_files_from_dir(diagnosis / "depression_chronic")
             data_dict = update_data_dict(data_dict, files, "DEPR")
             files = get_files_from_dir(diagnosis / "TD")
             data_dict = update_data_dict(data_dict, files, "TD")
@@ -117,12 +125,26 @@ if __name__ == "__main__":
     #  check number of participants in each group + distribution of number of files for each
     df = create_unique_ids(df)
     df.groupby(["id", "origin", "label", "study"]).count()["file"].groupby(
-        ["origin", "label"]
+        ["origin", "label", "study"]
     ).describe()
 
     # check length of audio files
     df["duration"] = df["file"].apply(audiofile_duration)
-    df.groupby(["origin", "label"]).describe()["duration"]
+    df.groupby(["origin", "label", "study"]).describe()["duration"]
+
+    # exclude files with duration < 3s
+    df[df["duration"] < 3].groupby(["origin", "label"]).count()
+    df[df["duration"] < 3].groupby(["id"]).count()["file"].sort_values(ascending=False)
+    df[df["duration"] < 3].groupby(["id"]).count()["file"].describe()
+    
+    exclude = df[df["duration"] < 3]
+    exclude.to_csv("excluded_audio.csv", index=False)
+
+    df = df[~(df["file"].isin(exclude["file"]))]
+    # list of ids with audio
+    df.groupby(["id"]).count().reset_index()[["id", "file"]].to_csv(
+        "ids_with_audio.csv", index=False
+    )
 
     ### TODO
     # make train/val/test split with Roberta and Riccardo or set up IDS for CV
