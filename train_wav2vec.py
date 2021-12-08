@@ -135,14 +135,15 @@ def speech_file_to_array(path):
 ### test this function: do you need the list comprehensions or can this all be done as tensor operations??
 def stack_speech_file_to_array(path):
     speech_array, sampling_rate = torchaudio.load(path)
+    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
+    speech_array = resampler(speech_array)
+
     windowed_arrays = stack_frames(
         speech_array.squeeze(),
-        sampling_rate=sampling_rate,
+        sampling_rate=target_sampling_rate,
         frame_length=io_args.window_length,
         frame_stride=io_args.stride_length,
     )
-    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
-    windowed_arrays = [resampler(window).squeeze() for window in windowed_arrays]
     return windowed_arrays
 
 
