@@ -55,6 +55,7 @@ if __name__=='__main__':
     print(f'Diagnosis absent for {len(no_id)} participants, excluding from transcript file...')
     trans = trans[~trans['Subject'].isin(no_id)]
     # This step ends up excluding 47 participants...
+    # Lasse: 0 excluded when I run it (using CleanData.csv as participants.csv)
 
     # Print excluded info
     print(f'No transcript: {no_trans}')
@@ -63,7 +64,7 @@ if __name__=='__main__':
 
     # Dropping irrelevant columns
     trans.drop(['Start Time', 'End Time', 
-                'Transcriber', 'File', 'Sub File'],
+                'Transcriber'],
                axis=1, inplace=True)
 
     # Log and save
@@ -78,6 +79,21 @@ if __name__=='__main__':
     trans['Diagnosis'] = trans['Diagnosis'].replace({'Schizophrenia': 'SCHZ', 
                                                      'Depression': 'DEPR', 
                                                      'Control': 'TD'})
+    
+    # Removing previously depressed patients (those in remission))
+    remission = trans[(trans["Diagnosis"] == "DEPR") & (trans["Recovered"] == 1)]
+    trans = trans.drop(remission.index)
+
+    # Depression has overlapping Subject IDs between first-episode and chronic depression
+    # If Sub File contains a 'dpc', the patient has chronic depression
+    # Changing study to '2' for chronic depression to follow the naming convention
+    trans.loc[trans["Sub File"].str.contains("dpc", na=False), "Study"] = 2
+
+    # There are some extra controls that have transcripts but no audio nor metadata
+    # They are probably the controls at second visit. There's no Sub File
+    # information on them though, so can't know for sure. Removing them.
+    trans = trans[trans["File"] != "Depression-Controls-DK-Triangles-2-Sheet1.csv"]
+    
     trans['id'] = trans['Group'] + '_' + trans['Diagnosis'] + '_' + trans['Study'].astype(str) + '_' + trans['Subject'].astype(str)
     trans['Transcript'] = trans['Transcript'].astype(str)
     
