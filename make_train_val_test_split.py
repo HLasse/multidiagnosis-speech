@@ -3,42 +3,105 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-data_path = Path().cwd() / "data" / "multi_diagnosis"
 
-# load data
-df = pd.read_csv(data_path / "CleanData2.csv", sep=";")
+## Load data on participants IDs
+transcripts_path = (
+    Path().cwd() / "data" / "transcripts" / "processed" / "transcripts.tsv"
+)
+audio_id_path = Path().cwd() / "data" / "multi_diagnosis" / "ids_with_audio.csv"
 
-df["Audio"] = np.where(df["Audio"] == 1.0, True, False)
-df["Transcription"] = np.where(df["Transcription"] == 1.0, True, False)
+ids_with_audio = pd.read_csv(audio_id_path)
+transcripts = pd.read_csv(transcripts_path, sep="\t")
 
-n_ids = df.shape[0]
+ids_with_transcript = transcripts["id"].unique()
+ids_with_audio = ids_with_audio["id"].unique()
 
-print(f"{n_ids} participants in total.\n{(n_ids - df['Audio'].sum())} without audio.\n{(n_ids - df['Transcription'].sum())} without transcription.")
+print(
+    f"{len(ids_with_audio)} participants with audio.\n{len(ids_with_transcript)} participants with transcripts."
+)
 
-# identify test set (6 from each group, 3/3 from 1st episode dep/chronic, 3 females, 3 males)
-df_both_audio_and_transcripts = df[(df["Audio"] == True) & (df["Transcription"] == True)]
-print(f"{df_both_audio_and_transcripts.shape[0]} with both audio and transcription")
+# Load metadata file
+metadata_path = Path().cwd() / "data" / "multi_diagnosis"
+
+df = pd.read_csv(metadata_path / "CleanData.csv", sep=";")
+# Save old id
+df["OldID"] = df["ID"]
 
 ## Convert study for  Diagnosis2 == ChronicDepression to "2"
-for col in ["Study", "OldID"]:
-    df[col] = df[col].astype(int)
+df.loc[df["Diagnosis2"] == "ChronicDepression", "Study"] = 2
 
+# remap names
+df["OverallStudy"] = df["OverallStudy"].map(
+    {
+        "ASD1": "ASD",
+        "ASD2": "ASD",
+        "ASD3": "ASD",
+        "ASD4": "ASD",
+        "Depres1": "DEPR",
+        "Schizo1": "SCHZ",
+        "Schizo2": "SCHZ",
+        "Schizo3": "SCHZ",
+        "Schizo4": "SCHZ",
+    }
+)
 
+df["Diagnosis"] = df["Diagnosis"].map(
+    {"Control": "TD", "Depression": "DEPR", "Schizophrenia": "SCHZ"}
+)
 
-ids_occuring_multiple_times = df["ID"].value_counts() > 1
+## Add ASD to diagnosis column
+asd_diagnoses = [
+    "Aspergers",
+    "ASD",
+    "F 84.8",
+    "F84.5",
+    "F84.8",
+    "F84.8, F06.2, R41.8",
+    "F84.8, R41.8",
+    "F84.12",
+]
+df.loc[
+    (df["OverallStudy"] == "ASD") & (df["Diagnosis2"].isin(asd_diagnoses)), "Diagnosis"
+] = "ASD"
 
+# Construct unique id
+df["ID"] = (
+    df["OverallStudy"]
+    + "_"
+    + df["Diagnosis"]
+    + "_"
+    + df["Study"].astype(str)
+    + "_"
+    + df["OldID"].astype(str)
+)
+
+# Add indicators
+df["Audio"] = np.where(df["ID"].isin(ids_with_audio), True, False)
+df["Transcription"] = np.where(df["ID"].isin(ids_with_transcript), True, False)
+
+# Sanity check for duplicates
 ids_occuring_multiple_times = df.groupby("ID").filter(lambda x: len(x) > 1)
+# Two duplicates, but due to error in CleanData. Removing one of them
+ids_occuring_multiple_times = ids_occuring_multiple_times.drop_duplicates()
+duplicate_indices = ids_occuring_multiple_times.index[1:]
 
-# check the nan diagnoses and recode them properly
+df = df.drop(duplicate_indices)
+
+df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv")
+n_ids = df.shape[0]
+
+print(
+    f"{n_ids} participants in total.\n{(n_ids - df['Audio'].sum())} without audio.\n{(n_ids - df['Transcription'].sum())} without transcription."
+)
 
 
+df_both_audio_and_transcripts = df[
+    (df["Audio"] == True) & (df["Transcription"] == True)
+]
+print(f"{df_both_audio_and_transcripts.shape[0]} with both audio and transcription")
 
-
-df["Diagnosis"].unique()
-
-df[df["Diagnosis"].isna()]
+# identify test set (6 from each group, 3/3 from 1st episode dep/chronic, 3 females, 3 males)
 
 # make sure test set has both audio and transcription
 
 # randomly split remainder into train and val
-
