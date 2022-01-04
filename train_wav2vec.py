@@ -8,8 +8,9 @@ TODO
 import os
 import sys
 import logging
+import random
 
-from typing import Union
+from typing import Union, Optional
 
 import numpy as np
 import torch
@@ -86,6 +87,20 @@ class IOArguments:
         default="",
         metadata={
             "help": "path to config yml for torch-audiomentations. Empty if no augmentations are desired"
+        },
+    )
+    max_training_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
+            "value if set."
+        },
+    )
+    max_validation_samples: Optional[int] = field(
+        default=None,
+        metadata={
+            "help": "For debugging purposes or quicker training, truncate the number of training examples to this "
+            "value if set."
         },
     )
 
@@ -171,7 +186,8 @@ def preprocess_stacked_speech_files(batch):
     for i, processed_speech in enumerate(processed_list):
         # un-nesting the stacked time windows
         for key, value in processed_speech.items():
-            out[key].append(value)
+            # values are indented in a list, need to index 0 to get them out
+            out[key].append(value[0])
         # making sure each window has the right label
         out["labels"].append([labels[i]] * n_windows[i])
         # adding metadata to be able to reidentify files
@@ -199,7 +215,7 @@ def preprocess(batch):
     return out
 
 
-# which metrics to compute for evaluationz
+# which metrics to compute for evaluation
 def compute_metrics(p: EvalPrediction):
     preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
     preds = np.argmax(preds, axis=1)
@@ -268,6 +284,23 @@ if __name__ == "__main__":
     train = dataset["train"]
     val = dataset["validation"]
 
+    # Optionally train on fewer samples for debugging
+    if io_args.max_training_samples is not None:
+        n_train_samples = len(train)
+        assert io_args.max_training_samples < n_train_samples
+        train_indices = random.sample(
+            range(1, n_train_samples), io_args.max_training_samples
+        )
+        train = train.select(train_indices)
+        train = train.flatten_indices()
+    if io_args.max_validation_samples is not None:
+        n_val_samples = len(val)
+        assert io_args.max_validation_samples < n_val_samples
+        val_indices = random.sample(
+            range(1, n_val_samples), io_args.max_validation_samples
+        )
+        val = val.select(val_indices)
+        val = val.flatten_indices()
     # get labels and num labels
     label_list = train.unique(io_args.label_col)
     # sorting for determinism
@@ -328,14 +361,18 @@ if __name__ == "__main__":
     if io_args.augmentations:
         augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
         augment_fn = partial(augmenter, sample_rate=target_sampling_rate)
-        data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True, augment_fn=augment_fn)
+        data_collator = DataCollatorCTCWithInputPadding(
+            processor=processor, padding=True, augment_fn=augment_fn
+        )
     else:
-        data_collator = DataCollatorCTCWithInputPadding(processor=processor, padding=True)
+        data_collator = DataCollatorCTCWithInputPadding(
+            processor=processor, padding=True
+        )
 
-    if training_args.freeze_encoder and not training_args.freeze_base_model:
+    if model_args.freeze_encoder and not model_args.freeze_base_model:
         model.freeze_feature_extractor()
         print("Freezing encoder...")
-    if training_args.freeze_base_model:
+    if model_args.freeze_base_model:
         model.freeze_base_model()
         print("Freezing entire base model...")
 
