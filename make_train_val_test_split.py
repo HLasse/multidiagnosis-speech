@@ -1,107 +1,82 @@
-from pathlib import Path
+"""Creates the training/validation/test split.
+Test split contains 6 IDs from each diagnostic group, balanced by gender, that both have audio and transcriptions.
+Validation split contains 6 IDs from each diagnostic group, balanced by gender.
+Only few ASD in the validation set have transcriptions, (as only few ASD have transcriptions).
+"""
 
 import pandas as pd
+from pathlib import Path
 import numpy as np
 
+if __name__ == "__main__":
 
-## Load data on participants IDs
-transcripts_path = (
-    Path().cwd() / "data" / "transcripts" / "processed" / "transcripts.tsv"
-)
-audio_id_path = Path().cwd() / "data" / "multi_diagnosis" / "ids_with_audio.csv"
+    # pretty print df
+    pd.set_option("expand_frame_repr", False)
 
-ids_with_audio = pd.read_csv(audio_id_path)
-transcripts = pd.read_csv(transcripts_path, sep="\t")
+    # set seed for reproducible splits
+    np.random.seed(42)
 
-ids_with_transcript = transcripts["id"].unique()
-ids_with_audio = ids_with_audio["id"].unique()
+    # Load metadata
+    metadata_path = Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv"
+    df = pd.read_csv(metadata_path)
 
-print(
-    f"{len(ids_with_audio)} participants with audio.\n{len(ids_with_transcript)} participants with transcripts."
-)
+    n_ids = df.shape[0]
 
-# Load metadata file
-metadata_path = Path().cwd() / "data" / "multi_diagnosis"
+    print(
+        f"{n_ids} participants in total.\n{(n_ids - df['Audio'].sum())} without audio.\n{(n_ids - df['Transcription'].sum())} without transcription."
+    )
 
-df = pd.read_csv(metadata_path / "CleanData.csv", sep=";")
-# Save old id
-df["OldID"] = df["ID"]
+    df_both_audio_and_transcripts = df[
+        (df["Audio"] == True) & (df["Transcription"] == True)
+    ]
 
-## Convert study for  Diagnosis2 == ChronicDepression to "2"
-df.loc[df["Diagnosis2"] == "ChronicDepression", "Study"] = 2
+    ### identify test set
+    # (6 from each group, 3/3 from 1st episode dep/chronic, 3 females, 3 males)
 
-# remap names
-df["OverallStudy"] = df["OverallStudy"].map(
-    {
-        "ASD1": "ASD",
-        "ASD2": "ASD",
-        "ASD3": "ASD",
-        "ASD4": "ASD",
-        "Depres1": "DEPR",
-        "Schizo1": "SCHZ",
-        "Schizo2": "SCHZ",
-        "Schizo3": "SCHZ",
-        "Schizo4": "SCHZ",
-    }
-)
+    print("Diagnosis / gender distribution for all participants:")
+    print(df.groupby(["Diagnosis", "Gender"])["ID"].describe())
 
-df["Diagnosis"] = df["Diagnosis"].map(
-    {"Control": "TD", "Depression": "DEPR", "Schizophrenia": "SCHZ"}
-)
+    print(
+        "Diagnosis / gender distribution for participants with both audio and transcripts:"
+    )
+    print(df_both_audio_and_transcripts.groupby(["Diagnosis", "Gender"])["ID"].describe())
 
-## Add ASD to diagnosis column
-asd_diagnoses = [
-    "Aspergers",
-    "ASD",
-    "F 84.8",
-    "F84.5",
-    "F84.8",
-    "F84.8, F06.2, R41.8",
-    "F84.8, R41.8",
-    "F84.12",
-]
-df.loc[
-    (df["OverallStudy"] == "ASD") & (df["Diagnosis2"].isin(asd_diagnoses)), "Diagnosis"
-] = "ASD"
+    df_test = df_both_audio_and_transcripts.groupby(["Diagnosis", "Gender"]).sample(3)
 
-# Construct unique id
-df["ID"] = (
-    df["OverallStudy"]
-    + "_"
-    + df["Diagnosis"]
-    + "_"
-    + df["Study"].astype(str)
-    + "_"
-    + df["OldID"].astype(str)
-)
+    df_no_test = df.drop(df_test.index)
 
-# Add indicators
-df["Audio"] = np.where(df["ID"].isin(ids_with_audio), True, False)
-df["Transcription"] = np.where(df["ID"].isin(ids_with_transcript), True, False)
+    # remove the F/M gender to be able to stratify sampling
+    df_no_test_no_fm_gender = df_no_test[~(df_no_test["Gender"] == "F/M")]
 
-# Sanity check for duplicates
-ids_occuring_multiple_times = df.groupby("ID").filter(lambda x: len(x) > 1)
-# Two duplicates, but due to error in CleanData. Removing one of them
-ids_occuring_multiple_times = ids_occuring_multiple_times.drop_duplicates()
-duplicate_indices = ids_occuring_multiple_times.index[1:]
+    df_val = df_no_test_no_fm_gender.groupby(["Diagnosis", "Gender"]).sample(3)
 
-df = df.drop(duplicate_indices)
+    df_train = df_no_test.drop(df_val.index)
 
-df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv")
-n_ids = df.shape[0]
+    ## save splits
+    save_dir = Path("data") / "splits"
+    if not save_dir.exists():
+        save_dir.mkdir()
 
-print(
-    f"{n_ids} participants in total.\n{(n_ids - df['Audio'].sum())} without audio.\n{(n_ids - df['Transcription'].sum())} without transcription."
-)
+    df_test.to_csv(save_dir / "test_split.csv", index=False)
+    df_val.to_csv(save_dir / "validation_split.csv", index=False)
+    df_train.to_csv(save_dir / "train_split.csv", index=False)
 
 
-df_both_audio_and_transcripts = df[
-    (df["Audio"] == True) & (df["Transcription"] == True)
-]
-print(f"{df_both_audio_and_transcripts.shape[0]} with both audio and transcription")
+    print("Test IDs:")
+    print(
+        df_test[
+            ["ID", "Gender", "Diagnosis", "Diagnosis2", "Age", "Audio", "Transcription"]
+        ]
+    )
 
-# identify test set (6 from each group, 3/3 from 1st episode dep/chronic, 3 females, 3 males)
+    print("Validation IDs")
+    df_val[["ID", "Gender", "Diagnosis", "Diagnosis2", "Age", "Audio", "Transcription"]]
 
-# make sure test set has both audio and transcription
+    print(f"{df_train.shape[0]} participants in train set")
 
-# randomly split remainder into train and val
+    print("Diagnosis and gender distribution of train set")
+    print(df_train.groupby(["Diagnosis", "Gender"])["ID"].describe()["count"])
+
+
+    # very few ASD with transcripts!
+    # very few males with depression
