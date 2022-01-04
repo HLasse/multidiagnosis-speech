@@ -8,10 +8,10 @@ import re
 
 import librosa
 
-BOTH_GENDERS = False
-SAVE_IDS = True
-ID_SAVE_PATH = os.path.join("data", "id_train_test_split_males.csv")
-IDS_FROM_CSV = os.path.join("data", "id_train_test_split_males.csv")
+# BOTH_GENDERS = False
+# SAVE_IDS = True
+# ID_SAVE_PATH = os.path.join("data", "id_train_test_split_males.csv")
+# IDS_FROM_CSV = os.path.join("data", "id_train_test_split_males.csv")
 
 
 def get_metadata(filename):
@@ -136,14 +136,14 @@ if __name__ == "__main__":
     df[df["duration"] < 3].groupby(["origin", "label"]).count()
     df[df["duration"] < 3].groupby(["id"]).count()["file"].sort_values(ascending=False)
     df[df["duration"] < 3].groupby(["id"]).count()["file"].describe()
-    
+
     exclude = df[df["duration"] < 3]
     exclude.to_csv("excluded_audio.csv", index=False)
 
     df = df[~(df["file"].isin(exclude["file"]))]
     # list of ids with audio
     df.groupby(["id"]).count().reset_index()[["id", "file"]].to_csv(
-        "ids_with_audio.csv", index=False
+        Path("data") / "multi_diagnosis" / "ids_with_audio.csv", index=False
     )
 
     ### TODO
