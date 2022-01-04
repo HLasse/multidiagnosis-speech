@@ -1,17 +1,14 @@
-"""Generate train/test split"""
+"""Generate train/test split for input to HF trainer for audio files"""
 import os
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
 from pathlib import Path
 import re
 
 import librosa
 
-# BOTH_GENDERS = False
-# SAVE_IDS = True
-# ID_SAVE_PATH = os.path.join("data", "id_train_test_split_males.csv")
-# IDS_FROM_CSV = os.path.join("data", "id_train_test_split_males.csv")
+SPLIT_PATH = Path("data") / "splits"
+AUDIO_SPLIT_PATH = Path("data") / "audio_file_splits"
 
 
 def get_metadata(filename):
@@ -108,8 +105,15 @@ def audiofile_duration(path):
     return librosa.get_duration(filename=path)
 
 
+def read_train_val_test():
+    train_ids = pd.read_csv(SPLIT_PATH / "train_split.csv")
+    val_ids = pd.read_csv(SPLIT_PATH / "validation_split.csv")
+    test_ids = pd.read_csv(SPLIT_PATH / "test_split.csv")
+    return train_ids, val_ids, test_ids
+
+
 if __name__ == "__main__":
-    data_dirs = os.path.join(os.getcwd(), "data", "multi_diagnosis")
+    data_dirs = Path("data") / "multi_diagnosis"
     data_dict = {
         "file": [],
         "label": [],
@@ -146,6 +150,25 @@ if __name__ == "__main__":
         Path("data") / "multi_diagnosis" / "ids_with_audio.csv", index=False
     )
 
-    ### TODO
-    # make train/val/test split with Roberta and Riccardo or set up IDS for CV
-    #
+    # create csvs with train/val/test splits
+    train_ids, val_ids, test_ids = read_train_val_test()
+
+    # drop duration column
+    df = df.drop("duration", axis=1)
+
+    train_df = df[df["id"].isin(train_ids["ID"])]
+    val_df = df[df["id"].isin(val_ids["ID"])]
+    test_df = df[df["id"].isin(test_ids["ID"])]
+
+    print(
+        f"""{len(train_df)} audio files for training
+    {len(val_df)} for validation
+    {len(test_df)} for test"""
+    )
+
+    if not AUDIO_SPLIT_PATH.exists():
+        AUDIO_SPLIT_PATH.mkdir()
+
+    train_df.to_csv(AUDIO_SPLIT_PATH / "audio_train_split.csv", index=False)
+    val_df.to_csv(AUDIO_SPLIT_PATH / "audio_val_split.csv", index=False)
+    test_df.to_csv(AUDIO_SPLIT_PATH / "audio_test_split.csv", index=False)
