@@ -95,7 +95,10 @@ if __name__ == "__main__":
 
     df = df.drop(duplicate_indices)
 
-    df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv")
+    df["Gender"] = df["Gender "]
+    df = df.drop("Gender ", axis=1)
+
+    df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv", index=False)
     n_ids = df.shape[0]
 
     print(
