@@ -1,9 +1,9 @@
 """ Train XLSR model on the training set
 TODO
-- test if augmentations work
-- add support for train/val/test splits
+- test if augmentations work correctly
 - experiment with parameters (lower learning rate)
 - test if predictions are made correctly in the eval function (np.argmax)
+- add support for resuming training from checkpoint
 """
 import os
 import sys
@@ -178,8 +178,10 @@ def preprocess_stacked_speech_files(batch):
         for speech_window in speech_list
     ]
 
-    # make `out` contain metadata about the batch
+    # make new larger dictionary that contains the flattened values
+    # labels = label as idx
     out = {"input_values": [], "attention_mask": [], "labels": []}
+    # save metadata from other columns
     for meta_key in batch.keys():
         out[meta_key] = []
     # looping through list of processed stacked speech arrays
@@ -187,17 +189,49 @@ def preprocess_stacked_speech_files(batch):
         # un-nesting the stacked time windows
         for key, value in processed_speech.items():
             # values are indented in a list, need to index 0 to get them out
-            out[key].append(value[0])
+            out[key].extend(value[0])
         # making sure each window has the right label
-        out["labels"].append([labels[i]] * n_windows[i])
+        out["labels"] += [labels[i]] * n_windows[i]
         # adding metadata to be able to reidentify files
         for meta_key, meta_value in batch.items():
-            out[meta_key].append([meta_value] * n_windows[i])
-    # un-nesting list again
-    for key, value in out.items():
-        out[key] = flatten(value)
+            out[meta_key] += [meta_value] * n_windows[i]
 
     return out
+
+
+# def preprocess_stacked_speech_files(batch):
+#     speech_list = [
+#         stack_speech_file_to_array(path) for path in batch[io_args.input_col]
+#     ]
+#     labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
+#     n_windows = [len(window) for window in speech_list]
+
+#     processed_list = [
+#         processor(speech_window, sampling_rate=target_sampling_rate)
+#         for speech_window in speech_list
+#     ]
+
+#     # make `out` contain metadata about the batch
+#     # labels = label as idx
+#     out = {"input_values": [], "attention_mask": [], "labels": []}
+#     for meta_key in batch.keys():
+#         out[meta_key] = []
+#     # looping through list of processed stacked speech arrays
+#     for i, processed_speech in enumerate(processed_list):
+#         # un-nesting the stacked time windows
+#         for key, value in processed_speech.items():
+#             # values are indented in a list, need to index 0 to get them out
+#             out[key].append(value[0])
+#         # making sure each window has the right label
+#         out["labels"].append([labels[i]] * n_windows[i])
+#         # adding metadata to be able to reidentify files
+#         for meta_key, meta_value in batch.items():
+#             out[meta_key].append([meta_value] * n_windows[i])
+#     # un-nesting list again
+#     for key, value in out.items():
+#         out[key] = flatten(value)
+
+#     return out
 
 
 def label_to_id(label, label_list):
