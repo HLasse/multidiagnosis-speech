@@ -5,21 +5,21 @@ import math
 
 sig = np.arange(0, 20)
 sampling_rate = 1
-frame_length = 5
+frame_length = 22
 frame_stride = 2
 zero_padding = True
 
+
 def stack_frames(
-        sig,
-        sampling_rate,
-        frame_length,
-        frame_stride,
-        filter=lambda x: np.ones(
-            (x,
-             )),
-        zero_padding=True,
-        keep_short_signals=True,
-        remove_zero_padding=False):
+    sig,
+    sampling_rate,
+    frame_length,
+    frame_stride,
+    filter=lambda x: np.ones((x,)),
+    zero_padding=True,
+    keep_short_signals=True,
+    remove_zero_padding=False,
+):
     """Frame a signal into overlapping frames.
 
     Args:
@@ -44,30 +44,38 @@ def stack_frames(
     s = "Signal dimention should be of the format of (N,) but it is %s instead"
     assert sig.ndim == 1, s % str(sig.shape)
 
-    signal_length = len(sig) / sampling_rate
-    if signal_length < frame_length:
-        if keep_short_signals:
-            return np.expand_dims(sig, axis=0)
-        else:
-            raise ValueError(f"Signal is shorter than frame length {signal_length} vs {frame_length}. Set `keep_short_signal` to True to return the original signal in such cases.")
-            
     # Initial necessary values
     length_signal = sig.shape[0]
     frame_sample_length = int(
-        np.round(
-            sampling_rate *
-            frame_length))  # Defined by the number of samples
+        np.round(sampling_rate * frame_length)
+    )  # Defined by the number of samples
     frame_stride = float(np.round(sampling_rate * frame_stride))
+
+    signal_length = len(sig) / sampling_rate
+    if signal_length < frame_length:
+        if keep_short_signals:
+            if zero_padding:
+                len_sig = int(frame_sample_length)
+                additive_zeros = np.zeros((len_sig - length_signal,))
+                sig = np.concatenate((sig, additive_zeros))
+            return np.expand_dims(sig, axis=0)
+        else:
+            raise ValueError(
+                f"Signal is shorter than frame length {signal_length} vs {frame_length}. Set `keep_short_signal` to True to return the original signal in such cases."
+            )
 
     # Zero padding is done for allocating space for the last frame.
     if zero_padding:
         # Calculation of number of frames
-        numframes = (int(math.ceil((length_signal
-                                      - frame_sample_length) / frame_stride)))
+        # numframes = (int(math.ceil((length_signal
+        #                             - frame_sample_length) / frame_stride)))
 
         # below zero pads the last, above discards the last signal
-        #numframes = (int(math.ceil((length_signal
-        #                        - (frame_sample_length - frame_stride)) / frame_stride)))
+        numframes = int(
+            math.ceil(
+                (length_signal - (frame_sample_length - frame_stride)) / frame_stride
+            )
+        )
         # Zero padding
         len_sig = int(numframes * frame_stride + frame_sample_length)
         additive_zeros = np.zeros((len_sig - length_signal,))
@@ -76,22 +84,22 @@ def stack_frames(
     else:
         # No zero padding! The last frame which does not have enough
         # samples(remaining samples <= frame_sample_length), will be dropped!
-        numframes = int(math.floor((length_signal
-                          - frame_sample_length) / frame_stride))
+        numframes = int(
+            math.floor((length_signal - frame_sample_length) / frame_stride)
+        )
 
         # new length
         len_sig = int((numframes - 1) * frame_stride + frame_sample_length)
         signal = sig[0:len_sig]
 
     # Getting the indices of all frames.
-    indices = np.tile(np.arange(0,
-                                frame_sample_length),
-                      (numframes,
-                       1)) + np.tile(np.arange(0,
-                                               numframes * frame_stride,
-                                               frame_stride),
-                                     (frame_sample_length,
-                                      1)).T
+    indices = (
+        np.tile(np.arange(0, frame_sample_length), (numframes, 1))
+        + np.tile(
+            np.arange(0, numframes * frame_stride, frame_stride),
+            (frame_sample_length, 1),
+        ).T
+    )
     indices = np.array(indices, dtype=np.int32)
 
     # Extracting the frames based on the allocated indices.
@@ -100,7 +108,7 @@ def stack_frames(
     # Apply the windows function
     window = np.tile(filter(frame_sample_length), (numframes, 1))
     Extracted_Frames = frames * window
-    
+
     # doesn't work - can't change the shape of a signle array
     if remove_zero_padding:
         Extracted_Frames[-1] = np.trim_zeros(Extracted_Frames[-1], trim="b")
@@ -108,5 +116,6 @@ def stack_frames(
     return Extracted_Frames
 
 
-l = stack_frames(sig, sampling_rate, frame_length, frame_stride, remove_zero_padding=False)
-
+l = stack_frames(
+    sig, sampling_rate, frame_length, frame_stride, remove_zero_padding=False
+)
