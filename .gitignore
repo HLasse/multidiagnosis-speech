@@ -135,3 +135,5 @@ model/
 wandb/
 *.csv
 *.wav
+
+augmentation_files/ir_files/.DS_Store
