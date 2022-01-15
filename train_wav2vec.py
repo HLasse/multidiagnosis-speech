@@ -147,8 +147,9 @@ def speech_file_to_array(path):
     return speech
 
 
-### test this function: do you need the list comprehensions or can this all be done as tensor operations??
 def stack_speech_file_to_array(path):
+    """Loads and resamples audio to target sampling rate and converts the
+    audio into windows of specified length and stride"""
     speech_array, sampling_rate = torchaudio.load(path)
     resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
     speech_array = resampler(speech_array)
@@ -162,11 +163,9 @@ def stack_speech_file_to_array(path):
     return windowed_arrays
 
 
-def flatten(t):
-    return [item for sublist in t for item in sublist]
-
-
 def preprocess_stacked_speech_files(batch):
+    """Process batch of audio files into windows of io_args.window_length with io_args.stride_length
+    and return input values as well as metadata for the batch"""
     speech_list = [
         stack_speech_file_to_array(path) for path in batch[io_args.input_col]
     ]
@@ -194,44 +193,9 @@ def preprocess_stacked_speech_files(batch):
         out["labels"] += [labels[i]] * n_windows[i]
         # adding metadata to be able to reidentify files
         for meta_key, meta_value in batch.items():
-            out[meta_key] += [meta_value] * n_windows[i]
+            out[meta_key] += [meta_value[i]] * n_windows[i]
 
     return out
-
-
-# def preprocess_stacked_speech_files(batch):
-#     speech_list = [
-#         stack_speech_file_to_array(path) for path in batch[io_args.input_col]
-#     ]
-#     labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
-#     n_windows = [len(window) for window in speech_list]
-
-#     processed_list = [
-#         processor(speech_window, sampling_rate=target_sampling_rate)
-#         for speech_window in speech_list
-#     ]
-
-#     # make `out` contain metadata about the batch
-#     # labels = label as idx
-#     out = {"input_values": [], "attention_mask": [], "labels": []}
-#     for meta_key in batch.keys():
-#         out[meta_key] = []
-#     # looping through list of processed stacked speech arrays
-#     for i, processed_speech in enumerate(processed_list):
-#         # un-nesting the stacked time windows
-#         for key, value in processed_speech.items():
-#             # values are indented in a list, need to index 0 to get them out
-#             out[key].append(value[0])
-#         # making sure each window has the right label
-#         out["labels"].append([labels[i]] * n_windows[i])
-#         # adding metadata to be able to reidentify files
-#         for meta_key, meta_value in batch.items():
-#             out[meta_key].append([meta_value] * n_windows[i])
-#     # un-nesting list again
-#     for key, value in out.items():
-#         out[key] = flatten(value)
-
-#     return out
 
 
 def label_to_id(label, label_list):
