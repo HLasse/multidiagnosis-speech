@@ -61,12 +61,6 @@ class EvalArguments:
     stride_length: Union[int, float] = field(
         default=1.0, metadata={"help": "stride length in seconds"}
     )
-    performance_by_window: bool = field(
-        default=True, metadata={"help": "evaluate performance by window"}
-    )
-    performance_by_file: bool = field(
-        default=True, metadata={"help": "evaluate performance by file"}
-    )
     performance_by_id: bool = field(
         default=True, metadata={"help": "evaluate performance by participant"}
     )
@@ -348,5 +342,4 @@ if __name__ == "__main__":
             test.groupby("id").apply(calculate_grouped_performance).apply(pd.Series)
         )
         print_performance(test_by_id, eval_args.label_col, "prediction_grouped")
-    # save results
-    ## if eval_args.save_dir does not have a csv ending, use the model name + csv
+
