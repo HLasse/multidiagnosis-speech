@@ -150,6 +150,9 @@ if __name__ == "__main__":
         Path("data") / "multi_diagnosis" / "ids_with_audio.csv", index=False
     )
 
+    # Save full csv for use in making the binary splits
+    df.to_csv(Path("data") / "multi_diagnosis" / "all_audio_files.csv", index=False)
+
     # create csvs with train/val/test splits
     train_ids, val_ids, test_ids = read_train_val_test()
 
