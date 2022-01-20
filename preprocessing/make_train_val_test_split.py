@@ -2,6 +2,7 @@
 Test split contains 6 IDs from each diagnostic group, balanced by gender, that both have audio and transcriptions.
 Validation split contains 6 IDs from each diagnostic group, balanced by gender.
 Only few ASD in the validation set have transcriptions, (as only few ASD have transcriptions).
+The splits needs to be processed by ´preproc_audio.py´ before they can be input to ´train_wav2vec.py´
 """
 
 import pandas as pd

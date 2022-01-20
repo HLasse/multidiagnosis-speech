@@ -55,9 +55,11 @@ def stack_frames(
     if signal_length < frame_length:
         if keep_short_signals:
             if zero_padding:
-                len_sig = int(frame_sample_length)
-                additive_zeros = np.zeros((len_sig - length_signal,))
-                sig = np.concatenate((sig, additive_zeros))
+                # Uncomment if you want to zero pad sequences shorter than frame_length
+                # len_sig = int(frame_sample_length)
+                # additive_zeros = np.zeros((len_sig - length_signal,))
+                # sig = np.concatenate((sig, additive_zeros))
+                return np.expand_dims(sig, axis=0)
             return np.expand_dims(sig, axis=0)
         else:
             raise ValueError(
