@@ -1,35 +1,29 @@
 # wav2vec_finetune
 
-Test finetuning of XLSR (multilingual wav2vec 2.0) for other speech classification tasks
+Test finetuning of XLSR (multilingual wav2vec 2.0) for classification of mental disorders from speech.
 
-- [X] Initial test: gender recognition on [this](https://zenodo.org/record/1219621#.YTcmxS2w0ws) dataset.
-- [X] Finetune for autism detection
-- [] Clean up directory
-- [] Make training and evaluation scripts runnable with cmd line / shell scripts
-- [] Add random noise on training samples
-- [] Make baseline models
+
 ```
 # make virtual env
 pip install -r requirements.txt
 
 mkdir data
-mkdir preproc_data
-mkdir model
-cd data
-wget https://zenodo.org/record/1219621/files/CaFE_48k.zip?download=1
-unzip the file 
+# download and unzip data to 'data/multi_diagnosis'
+wget ...
+unzip ..
+# make sure metadata file (CleanData3.csv) is in 'data/multidiagnosis.
+# if only access to CleanData.csv, run preprocessing/merge_participant_metadata.py
 
-python preproc.py
-python train.py
-python evaluate.py
+# run preprocessing scripts
+bash run_preprocessing.py
+
+# train model from config file
+python train_wav2vec path_to_config_file
+
+# evaluate model from config file
+python evaluate_wav2vec path_to_config_file
+
 ```
-
-## Updates
-- 11/9: success! Trained a sex classifier on a small dataset that performs soso. Everything seems to work though.
-
-## TODO
-- Chunk audio files - make predictions in batches of e.g. 5 seconds
-- Set up benchmark models
 
 ## Resources: 
 - https://github.com/pytorch/fairseq/blob/master/examples/xlmr/README.md
@@ -44,13 +38,10 @@ python evaluate.py
 - https://github.com/DReiser7/w2v_did
 - https://github.com/ARBML/klaam
 - https://github.com/agemagician/wav2vec2-sprint/blob/main/run_common_voice.py
+- https://github.com/huggingface/transformers/tree/master/examples/research_projects/robust-speech-event
 
-## Notes:
-- Look into SpecAugment for finetuning: https://arxiv.org/abs/1904.08779 (on by default)
-- How to make the prediction? 
-  - Better way than a small feedforward projection? (LSTM or something?)
 
 ## Audio augmentation
 - Using torch-audiomentation
-- IR taking from [MIT Acoustical Reverberation Scene Statistics Survey](https://mcdermottlab.mit.edu/Reverb/IR_Survey.html)
+- IR taking from [MIT Acoustical Reverberation Scene Statistics Survey](https://mcdermottlab.mit.edu/Reverb/IR_Survey.html). Placed in 'augmentation_files/ir'. Specificy path in 'augmentation_config.yml'
 - 

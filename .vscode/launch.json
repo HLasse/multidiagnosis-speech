@@ -21,7 +21,17 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "configs/test_config.json"
+                "configs/multiclass_models/test_config.json"
+            ]
+        },
+        {
+            "name": "Debug schizo",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "configs/binary_models/schz_config.json"
             ]
         },
         {

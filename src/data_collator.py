@@ -72,16 +72,16 @@ class DataCollatorCTCWithInputPadding:
             return_tensors="pt",
         )
 
-        # set shape to [batch_size, num_channels, num_samples]
-        #  add channel if currently mono (otherwise shape is [batch_size, num_samples])
-        if len(batch["input_values"].shape) == 2:
-            batch["input_values"] = batch["input_values"][:, None, :]
-        if len(batch["input_values"].shape) != 3:
-            raise RuntimeError(
-                "Input tensor should be three-dimensional with dimension ordering [batch_size, num_channels, num_samples"
-            )
         if self.augmentation_fn:
+            # torch audiomentations expects 3 shape [batch_size, num_channels, num_samples]
+            # mono audio will be [batch_size, num_samples]
+            # adding dimension
+            if len(batch["input_values"].shape) == 2:
+                batch["input_values"] = batch["input_values"][:, None, :]
             batch["input_values"] = self.augmentation_fn(batch["input_values"])
+            # an extra dimension is added _somewhere_ before input to to the model
+            # need to remove the channel dimension again
+            batch["input_values"] = batch["input_values"].squeeze()
 
         batch["labels"] = torch.tensor(label_features, dtype=d_type)
 
