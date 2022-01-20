@@ -92,8 +92,8 @@ if __name__ == "__main__":
         )
 
         subset_by_id(all_audio_files, sub_val).to_csv(
-            f"{diagnosis}_validation_split.csv", index=False
+            SAVE_DIR / f"{diagnosis}_validation_split.csv", index=False
         )
         subset_by_id(all_audio_files, sub_test).to_csv(
-            f"{diagnosis}_test_split.csv", index=False
+            SAVE_DIR / f"{diagnosis}_test_split.csv", index=False
         )
