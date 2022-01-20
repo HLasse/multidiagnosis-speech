@@ -23,6 +23,8 @@ import dataclasses
 from dataclasses import dataclass, field
 from datasets import load_dataset
 
+from pydantic import validate_arguments
+
 import transformers
 from transformers import (
     HfArgumentParser,
@@ -55,7 +57,7 @@ from src.make_windows import stack_frames
 
 logger = logging.getLogger(__name__)
 
-
+@validate_arguments
 @dataclass
 class IOArguments:
     model_name: str = field(
@@ -104,7 +106,7 @@ class IOArguments:
         },
     )
 
-
+@validate_arguments
 @dataclass
 class ModelArguments:
     attention_dropout: float = field(
@@ -360,7 +362,7 @@ if __name__ == "__main__":
         augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
         augment_fn = partial(augmenter, sample_rate=target_sampling_rate)
         data_collator = DataCollatorCTCWithInputPadding(
-            processor=processor, padding=True, augment_fn=augment_fn
+            processor=processor, padding=True, augmentation_fn=augment_fn
         )
     else:
         data_collator = DataCollatorCTCWithInputPadding(
@@ -369,10 +371,10 @@ if __name__ == "__main__":
 
     if model_args.freeze_encoder and not model_args.freeze_base_model:
         model.freeze_feature_extractor()
-        print("Freezing encoder...")
+        print("[INFO] Freezing encoder...")
     if model_args.freeze_base_model:
         model.freeze_base_model()
-        print("Freezing entire base model...")
+        print("[INFO] Freezing entire base model...")
 
     trainer = Trainer(
         model=model,
