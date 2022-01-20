@@ -1,15 +1,12 @@
 {
-    "model_name": "facebook/wav2vec2-large-xlsr-53",
-    "train": "data/audio_file_splits/audio_train_split.csv",
-    "validation": "data/audio_file_splits/audio_val_split.csv",
-    "augmentations": "configs/augmentation_config.yml",
+    "model_name": "facebook/wav2vec2-xls-r-300m",
+    "train": "data/audio_file_splits/binary_splits/SCHZ_train_split_2_to_3_ratio_td.csv",
+    "validation": "data/audio_file_splits/binary_splits/SCHZ_validation_split.csv",
     "input_col": "file",
     "label_col": "label",
     "use_windowing": "True",
-    "window_length": 5,
+    "window_length": 4,
     "stride_length": 1.0,
-    "max_training_samples": 100,
-    "max_validation_samples": 100,
     "attention_dropout": 0.1,
     "hidden_dropout": 0.1,
     "final_dropout": 0.1,
@@ -20,8 +17,8 @@
     "ctc_loss_reduction": "sum",
     "freeze_encoder": "True",
     "freeze_base_model": "False",
-    "output_dir": "test",
-    "run_name": "test",
+    "output_dir": "model/xls-r-schz-2-to-3-ratio-lr-3e-3-10epoch",
+    "run_name": "xls-r-schz-2-to-3-ratio-lr-3e-3-10epoch",
     "num_train_epochs": 10,
     "per_device_train_batch_size": 16,
     "learning_rate": 3e-3,
@@ -31,6 +28,5 @@
     "fp16": "True",
     "save_total_limit": 3,
     "load_best_model_at_end": "True",
-    "save_strategy": "epoch",
-    "report_to": "none"
+    "save_strategy": "epoch"
 }
