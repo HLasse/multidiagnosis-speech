@@ -5,7 +5,7 @@ from transformers import Wav2Vec2Processor
 import torch
 
 from dataclasses import dataclass
-from typing import Union, Optional, Dict, List
+from typing import Union, Optional, Dict, List, Callable
 
 from .processor import CustomWav2Vec2Processor
 
@@ -49,18 +49,19 @@ class DataCollatorCTCWithInputPadding:
     max_length_labels: Optional[int] = None
     pad_to_multiple_of: Optional[int] = None
     pad_to_multiple_of_labels: Optional[int] = None
-    augmentation_fn = None
+    augmentation_fn: Optional[Callable] = None
 
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lenghts and need
         # different padding methods
-        if self.augmentation_fn:
-            input_features = [{"input_values": self.augmentation_fn(feature["input_values"])} for feature in features]
-        else:
-            input_features = [{"input_values": feature["input_values"]} for feature in features]
+        input_features = [
+            {"input_values": feature["input_values"]} for feature in features
+        ]
 
         label_features = [feature["labels"] for feature in features]
-        
+
         d_type = torch.long if isinstance(label_features[0], int) else torch.float
 
         batch = self.processor.pad(
@@ -71,10 +72,20 @@ class DataCollatorCTCWithInputPadding:
             return_tensors="pt",
         )
 
+        # set shape to [batch_size, num_channels, num_samples]
+        #  add channel if currently mono (otherwise shape is [batch_size, num_samples])
+        if len(batch["input_values"].shape) == 2:
+            batch["input_values"] = batch["input_values"][:, None, :]
+        if len(batch["input_values"].shape) != 3:
+            raise RuntimeError(
+                "Input tensor should be three-dimensional with dimension ordering [batch_size, num_channels, num_samples"
+            )
+        if self.augmentation_fn:
+            batch["input_values"] = self.augmentation_fn(batch["input_values"])
+
         batch["labels"] = torch.tensor(label_features, dtype=d_type)
 
         return batch
-
 
 
 @dataclass
@@ -110,19 +121,23 @@ class DataCollatorCTCWithPaddingKlaam:
     pad_to_multiple_of: Optional[int] = None
     pad_to_multiple_of_labels: Optional[int] = None
 
-    def __call__(self, features: List[Dict[str, Union[List[int], torch.Tensor]]]) -> Dict[str, torch.Tensor]:
+    def __call__(
+        self, features: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
         # split inputs and labels since they have to be of different lenghts and need
         # different padding methods
 
-        input_features = [{"input_values": feature["input_values"]} for feature in features]
-        
+        input_features = [
+            {"input_values": feature["input_values"]} for feature in features
+        ]
+
         def onehot(lbl):
-            onehot = [0]*2
+            onehot = [0] * 2
             onehot[int(lbl)] = 1
             return onehot
-        
+
         output_features = [onehot(feature["labels"]) for feature in features]
-        
+
         batch = self.processor.pad(
             input_features,
             padding=True,
