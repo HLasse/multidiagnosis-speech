@@ -137,3 +137,5 @@ wandb/
 *.wav
 
 augmentation_files/ir_files/.DS_Store
+git_token.txt
+setup_git.sh
