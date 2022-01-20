@@ -23,6 +23,16 @@
             "args": [
                 "configs/test_config.json"
             ]
+        },
+        {
+            "name": "Current file from root",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": ""
+            }
         }
     ]
 }
