@@ -1,7 +1,7 @@
 transform: Compose
 params:
   shuffle: True
-  mode: per_example
+  p: 1.0
   transforms:
     - transform: Gain
       params:
