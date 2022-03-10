@@ -1,0 +1,19 @@
+transform: Compose
+params:
+  shuffle: True
+  p: 1.0
+  transforms:
+    - transform: Gain
+      params:
+        p: 0.2
+    - transform: AddColoredNoise
+      params:
+        p: 0.2
+    - transform: ApplyImpulseResponse
+      params:
+        ir_paths: augmentation_files/ir_files
+        p: 0.2
+    - transform: PitchShift
+      params:
+        sample_rate: 16000
+        p: 0.2

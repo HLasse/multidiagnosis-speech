@@ -1,0 +1,48 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Evaluate wav2vec",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/evaluate_wav2vec.py",
+            "console": "integratedTerminal",
+            "args": [
+                "configs/eval_configs/test_config.json"
+            ]
+        },
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "configs/multiclass_models/test_config.json"
+            ]
+        },
+        {
+            "name": "Debug schizo",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": [
+                "configs/binary_models/schz_config.json"
+            ]
+        },
+        {
+            "name": "Current file from root",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": ""
+            }
+        }
+    ]
+}
