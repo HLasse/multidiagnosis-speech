@@ -157,7 +157,7 @@ if __name__ == "__main__":
     train_ids, val_ids, test_ids = read_train_val_test()
 
     # drop duration column
-    df = df.drop("duration", axis=1)
+    # df = df.drop("duration", axis=1)
 
     train_df = df[df["id"].isin(train_ids["ID"])]
     val_df = df[df["id"].isin(val_ids["ID"])]

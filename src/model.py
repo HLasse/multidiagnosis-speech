@@ -16,7 +16,7 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 class Wav2Vec2ClassificationHead(nn.Module):
     """Head for classification tasks
         Layers:
-        - dropout
+        # - dropout
         - dense layer (default xlsr hidden size = 1024)
         - relu
         - dropout
@@ -25,14 +25,14 @@ class Wav2Vec2ClassificationHead(nn.Module):
 
     def __init__(self, config):
         super().__init__()
-        self.hidden_dropout = nn.Dropout(config.hidden_dropout)
+        # self.hidden_dropout = nn.Dropout(config.hidden_dropout)
         self.dense = nn.Linear(config.hidden_size, config.hidden_size)
         self.dropout = nn.Dropout(config.final_dropout)
         self.out = nn.Linear(config.hidden_size, config.num_labels)
 
     def forward(self, features, **kwargs):
         x = features
-        x = self.hidden_dropout(x)
+        # x = self.hidden_dropout(x)
         x = torch.relu(self.dense(x))
         x = self.dropout(x)
         x = self.out(x)

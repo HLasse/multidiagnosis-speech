@@ -11,15 +11,13 @@ import numpy as np
 if __name__ == "__main__":
 
     ## Load data on participants IDs
-    transcripts_path = (
-        Path().cwd() / "data" / "transcripts" / "processed" / "transcripts.tsv"
-    )
+    transcripts_path = Path().cwd() / "data" / "transcripts" / "full.csv"
     audio_id_path = Path().cwd() / "data" / "multi_diagnosis" / "ids_with_audio.csv"
 
     ids_with_audio = pd.read_csv(audio_id_path)
-    transcripts = pd.read_csv(transcripts_path, sep="\t")
+    transcripts = pd.read_csv(transcripts_path)
 
-    ids_with_transcript = transcripts["id"].unique()
+    ids_with_transcript = transcripts["ID"].unique()
     ids_with_audio = ids_with_audio["id"].unique()
 
     print(
@@ -30,6 +28,7 @@ if __name__ == "__main__":
     metadata_path = Path().cwd() / "data" / "multi_diagnosis"
 
     df = pd.read_csv(metadata_path / "CleanData.csv", sep=";")
+
     # Save old id
     df["OldID"] = df["ID"]
 
@@ -82,6 +81,24 @@ if __name__ == "__main__":
         + df["OldID"].astype(str)
     )
 
+    missing_data = {
+        "ID": [
+            "SCHZ_SCHZ_2_214",
+            "SCHZ_SCHZ_3_330",
+            "SCHZ_TD_3_313",
+            "SCHZ_TD_4_448",
+            "DEPR_DEPR_1_4",
+            "DEPR_DEPR_1_44",
+            "DEPR_TD_1_42",
+        ],
+        "Gender": ["Female", "Male", "Male", "Male", "Male", "Female", "Female"],
+        "Education": [9, 9, 14, 15, 12, 13, 17],
+        "Age": [21, 67, 44, 23, 24, 25, 36],
+        "DepressionSeverity": [np.nan, np.nan, np.nan, np.nan, 19, 22, 0],
+    }
+    missing_data = pd.DataFrame.from_dict(missing_data)
+    df = pd.concat([df, missing_data], ignore_index=True)
+
     # Add indicators
     df["Audio"] = np.where(df["ID"].isin(ids_with_audio), True, False)
     df["Transcription"] = np.where(df["ID"].isin(ids_with_transcript), True, False)
@@ -98,7 +115,7 @@ if __name__ == "__main__":
     df["Gender"] = df["Gender "]
     df = df.drop("Gender ", axis=1)
 
-    df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv", index=False)
+    df.to_csv(Path().cwd() / "data" / "multi_diagnosis" / "CleanData4.csv", index=False)
     n_ids = df.shape[0]
 
     print(

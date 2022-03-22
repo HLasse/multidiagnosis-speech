@@ -1,10 +1,16 @@
 torch
+torchaudio
 packaging>=20.9
 transformers==4.10.0
-datasets==1.11.0
+datasets
 numpy==1.19.5
 pandas==1.1.5
 scikit-learn==0.24.2
 librosa
 tqdm>=4.9.0
 pydantic==1.9.0
+pytorch-lightning
+speechbrain
+opensmile
+wandb
+torch-audiomentations

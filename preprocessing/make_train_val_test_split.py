@@ -18,7 +18,7 @@ if __name__ == "__main__":
     np.random.seed(42)
 
     # Load metadata
-    metadata_path = Path().cwd() / "data" / "multi_diagnosis" / "CleanData3.csv"
+    metadata_path = Path().cwd() / "data" / "multi_diagnosis" / "CleanData4.csv"
     df = pd.read_csv(metadata_path)
 
     n_ids = df.shape[0]
