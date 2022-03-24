@@ -141,3 +141,4 @@ git_token.txt
 setup_git.sh
 *.ckpt
 *DS_Store
+lightning_logs/
