@@ -39,9 +39,9 @@ class BaselineClassifier(pl.LightningModule):
 
         input_dims = {
             "xvector": 512,
-            "eGeMAPSv02": 88,
+            "egemaps": 88,
             "aggregated_mfccs": 128,
-            "ComParE": 6373,
+            "compare": 6373,
         }
 
         self.linear = nn.Linear(input_dims[feature_set], 1028)

@@ -38,7 +38,8 @@ def create_dataloaders(config, embedding_fn) -> Tuple[DataLoader, DataLoader]:
 
 def create_trainer(config) -> pl.Trainer:
     wandb_logger = WandbLogger()
-    callbacks = [ModelCheckpoint(monitor="val_loss", mode="min")]
+    callbacks = [ModelCheckpoint(
+        monitor="val_loss", mode="min")]
     if config.patience:
         early_stopping = EarlyStopping("val_loss", patience=config.patience)
         callbacks.append(early_stopping)
@@ -87,6 +88,8 @@ if __name__ == "__main__":
 
 
     for feat_set in embedding_fn_dict.keys():
+        if feat_set == "windowed_mfccs":
+            continue
         print(f"[INFO] Starting {feat_set}...")
         # setup wandb config
         run = wandb.init(config=arguments,
@@ -96,7 +99,9 @@ if __name__ == "__main__":
             reinit=True)
 
         config = run.config
+        run.name = f"baseline_{feat_set}"
         config.run_name = run.name
+        run.log({"feat_set" : feat_set})
 
         # Create dataloaders, model, and trainer
         train_loader, val_loader = create_dataloaders(config, embedding_fn_dict[feat_set])
@@ -116,7 +121,7 @@ if __name__ == "__main__":
             run.log({"lr_finder.plot": fig})
             run.log({"found_lr" : lr_finder.suggestion()})
 
-        run.log({"feat_set" : feat_set})
+        
         trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
         
         # Finish tracking run on wandb to start the next one
