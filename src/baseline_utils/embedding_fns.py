@@ -5,6 +5,8 @@ from torchaudio.transforms import MelSpectrogram
 from speechbrain.pretrained import EncoderClassifier
 from speechbrain.lobes.features import MFCC
 
+import numpy as np
+
 import opensmile
 
 def get_embedding_fns():
@@ -25,6 +27,8 @@ def get_embedding_fns():
 
     def xvector_embedding_fn(audio):
         # shape = (batch, 512)
+        if isinstance(audio, np.ndarray):
+            audio=torch.tensor(audio)
         return xvector_embedding.encode_batch(audio).squeeze()
 
     egemapsv2 = opensmile.Smile(
