@@ -25,7 +25,7 @@ from transformers import AutoConfig, Wav2Vec2FeatureExtractor, HfArgumentParser
 from datasets import load_dataset
 
 from src.processor import CustomWav2Vec2Processor
-from src.model import Wav2Vec2ForSequenceClassification
+from src.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
@@ -87,8 +87,9 @@ def stack_speech_file_to_array(path):
         frame_length=eval_args.window_length,
         frame_stride=eval_args.stride_length,
     )
-    if windowed_arrays.shape[1] != 64000:
-        print("debug")
+
+    # if windowed_arrays.shape[1] != 64000:
+    #     print("debug")
     return windowed_arrays
 
 

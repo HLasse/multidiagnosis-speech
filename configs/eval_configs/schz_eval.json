@@ -1,0 +1,5 @@
+{
+    "model_path": "model/xls-r-schz-2-to-3-ratio-lr-3e-3-20epoch-noaug-frozen-base",
+    "metadata_path": "data/multi_diagnosis/CleanData3.csv",
+    "data_path": "data/audio_file_splits/binary_splits/SCHZ_validation_split.csv"
+}

@@ -6,8 +6,8 @@ import torch.functional as F
 from torch.nn import BCEWithLogitsLoss, CrossEntropyLoss, MSELoss
 
 from transformers.models.wav2vec2.modeling_wav2vec2 import (
-    Wav2Vec2PreTrainedModel, 
-    Wav2Vec2Model
+    Wav2Vec2PreTrainedModel,
+    Wav2Vec2Model,
 )
 
 from transformers.modeling_outputs import SequenceClassifierOutput
@@ -15,12 +15,12 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 
 class Wav2Vec2ClassificationHead(nn.Module):
     """Head for classification tasks
-        Layers:
-        - dropout
-        - dense layer (default xlsr hidden size = 1024)
-        - relu
-        - dropout
-        - classificiation layer of size num_labels
+    Layers:
+    - dropout
+    - dense layer (default xlsr hidden size = 1024)
+    - relu
+    - dropout
+    - classificiation layer of size num_labels
     """
 
     def __init__(self, config):
@@ -44,7 +44,9 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         super().__init__(config)
 
         self.wav2vec2 = Wav2Vec2Model(config)
-        num_layers = config.num_hidden_layers + 1  # transformer layers + input embeddings
+        num_layers = (
+            config.num_hidden_layers + 1
+        )  # transformer layers + input embeddings
         if config.use_weighted_layer_sum:
             self.layer_weights = nn.Parameter(torch.ones(num_layers) / num_layers)
         self.classifier = Wav2Vec2ClassificationHead(config)
@@ -97,8 +99,12 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
             >>> loss = model(input_values, labels=labels).loss
         """
 
-        return_dict = return_dict if return_dict is not None else self.config.use_return_dict
-        output_hidden_states = True if self.config.use_weighted_layer_sum else output_hidden_states
+        return_dict = (
+            return_dict if return_dict is not None else self.config.use_return_dict
+        )
+        output_hidden_states = (
+            True if self.config.use_weighted_layer_sum else output_hidden_states
+        )
 
         outputs = self.wav2vec2(
             input_values,
@@ -119,9 +125,13 @@ class Wav2Vec2ForSequenceClassification(Wav2Vec2PreTrainedModel):
         if attention_mask is None:
             pooled_output = hidden_states.mean(dim=1)
         else:
-            padding_mask = self._get_feature_vector_attention_mask(hidden_states.shape[1], attention_mask)
+            padding_mask = self._get_feature_vector_attention_mask(
+                hidden_states.shape[1], attention_mask
+            )
             hidden_states[~padding_mask] = 0.0
-            pooled_output = hidden_states.sum(dim=1) / padding_mask.sum(dim=1).view(-1, 1)
+            pooled_output = hidden_states.sum(dim=1) / padding_mask.sum(dim=1).view(
+                -1, 1
+            )
 
         logits = self.classifier(pooled_output)
 

@@ -1,0 +1,4 @@
+{
+    "model_path": "model/wav2vec-lr-3e-3-10epoch-aug-frozen-encoder",
+    "metadata_path": "data/multi_diagnosis/CleanData3.csv"
+}
