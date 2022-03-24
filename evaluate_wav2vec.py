@@ -26,6 +26,8 @@ from tqdm import tqdm
 from transformers import AutoConfig, HfArgumentParser, Wav2Vec2FeatureExtractor
 
 from src.baseline_utils.baseline_pl_model import BaselineClassifier
+from src.processor import CustomWav2Vec2Processor
+from src.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 from src.model import Wav2Vec2ForSequenceClassification
 from src.processor import CustomWav2Vec2Processor
@@ -83,8 +85,9 @@ def stack_speech_file_to_array(path):
         frame_length=eval_args.window_length,
         frame_stride=eval_args.stride_length,
     )
-    if windowed_arrays.shape[1] != 64000:
-        print("debug")
+
+    # if windowed_arrays.shape[1] != 64000:
+    #     print("debug")
     return windowed_arrays
 
 

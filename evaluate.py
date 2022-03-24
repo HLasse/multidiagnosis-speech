@@ -19,8 +19,11 @@ from typing import Union
 import time
 
 from transformers import AutoConfig, Wav2Vec2FeatureExtractor, HfArgumentParser
+
+from datasets import load_dataset
+
 from src.processor import CustomWav2Vec2Processor
-from src.model import Wav2Vec2ForSequenceClassification
+from wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 
 from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
@@ -157,10 +160,19 @@ if __name__ == "__main__":
         device
     )
 
-    # load test data
-    ## turn into huggingface dataset
+
+
+    print("[INFO] Loading dataset...")
+    dataset = load_dataset(
+        "csv", data_files={"test": eval_args.data_path}, delimiter=","
+    )
+    test = dataset["test"]
+    print(
+        f"[INFO] Preprocessing dataset with window size {eval_args.window_length} and stride length {eval_args.stride_length}"
+    )
     ### make windows with map
     ### apply model on windows with batched map
+
 
     test = pd.read_csv(eval_args.data_path)
     print(f"Evaluating on {eval_args.data_path} containing {len(test)} files")

@@ -2,7 +2,6 @@
 TODO
 - test if augmentations work correctly
 - experiment with parameters (lower learning rate)
-- test if predictions are made correctly in the eval function (np.argmax)
 - add support for resuming training from checkpoint
 """
 import os
@@ -48,7 +47,7 @@ from src.data_collator import (
 )
 from src.trainer import CTCTrainer
 from src.processor import CustomWav2Vec2Processor
-from src.model import Wav2Vec2ForSequenceClassification
+from src.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 
 
@@ -56,6 +55,7 @@ from src.make_windows import stack_frames
 
 
 logger = logging.getLogger(__name__)
+
 
 @validate_arguments
 @dataclass
@@ -105,6 +105,7 @@ class IOArguments:
             "value if set."
         },
     )
+
 
 @validate_arguments
 @dataclass
@@ -310,7 +311,11 @@ if __name__ == "__main__":
     # train = train.select([0])
 
     # Load feature extractor
-    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(io_args.model_name)
+    ### Alvenirs wav2vec model does not have a preprocessor_config.json so
+    # need to use the one from xls-r (or wav2vec-base??) so hard-coding it
+    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+        "facebook/wav2vec2-xls-r-300m"
+    )
     processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
     # need this parameter for preprocessing to resample audio to correct sampling rate
     target_sampling_rate = processor.feature_extractor.sampling_rate
@@ -325,11 +330,13 @@ if __name__ == "__main__":
             preprocess_stacked_speech_files,
             batched=True,
             remove_columns=dataset["train"].column_names,
+            batch_size=200,
         )
         val = val.map(
             preprocess_stacked_speech_files,
             batched=True,
             remove_columns=dataset["validation"].column_names,
+            batch_size=200,
         )
     else:
         train = train.map(preprocess, batched=True)
