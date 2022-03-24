@@ -15,7 +15,7 @@
             ]
         },
         {
-            "name": "Python: Current File",
+            "name": "Train wav2vec debug",
             "type": "python",
             "request": "launch",
             "program": "${file}",
@@ -33,6 +33,26 @@
             "args": [
                 "configs/binary_models/schz_config.json"
             ]
+        },
+        {
+            "name": "Current file from root",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": ""
+            }
+        },
+        {
+            "name": "Current file from wd",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "env": {
+                "PYTHONPATH": "wav2vec_finetune"
+            }
         }
     ]
 }

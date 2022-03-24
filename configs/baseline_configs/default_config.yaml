@@ -1,0 +1,34 @@
+learning_rate: 
+  default: 0.001
+auto_lr_find:
+  default: True
+  help: Should the model find the learning rate? Overwrites learning rate
+precision:
+  default: 16
+batch_size:
+  default: 120
+num_workers: 
+  default: 4
+val_check_interval:
+  default: 10
+gpus: 
+  default: -1
+  help: The number of GPUs to use, null indicate no GPUs
+profiler: 
+  default: null
+  help: Should a profiler such as "simple" be set.
+patience: 
+  default: 10
+max_epochs: 
+  default: 1500
+log_step:
+  default: 10
+  help: the log step of the model watch
+watch:
+  default: False
+  help: Should wandb watch be activated?
+default_root_dir:
+  default: /work/projectFiles/wav2vec_finetune/baseline_models
+config:
+  default: null
+  help: Additional config which overwrites the default configs

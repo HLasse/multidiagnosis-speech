@@ -28,7 +28,7 @@
     "evaluation_strategy": "epoch",
     "group_by_length": "False",
     "gradient_accumulation_steps": 2,
-    "fp16": "True",
+    "fp16": "False",
     "save_total_limit": 3,
     "load_best_model_at_end": "True",
     "save_strategy": "epoch",

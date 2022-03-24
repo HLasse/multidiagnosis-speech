@@ -39,7 +39,7 @@ python evaluate_wav2vec path_to_config_file
 - https://github.com/ARBML/klaam
 - https://github.com/agemagician/wav2vec2-sprint/blob/main/run_common_voice.py
 - https://github.com/huggingface/transformers/tree/master/examples/research_projects/robust-speech-event
-
+- https://github.com/talhanai/speech-nlp-datasets
 
 ## Audio augmentation
 - Using torch-audiomentation
