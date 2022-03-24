@@ -3,37 +3,33 @@ TODO
 - Figure out why the pandas version and HF version do not give the same results.
 - Pandas one seems to be the most trustworthy (according to metrics on wandb + general knowledge)
 - Try to predict something in the preprocess function (so one map is enough)
+- Turn this into a class instead to clean it up
 """
 
+import dataclasses
 import os
 import sys
+import time
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Optional, Union
+
 import numpy as np
 import pandas as pd
-
-from pathlib import Path
-
 import torch
 import torch.nn.functional as F
 import torchaudio
-
-from typing import Union, Optional
-
-import time
-
-from transformers import AutoConfig, Wav2Vec2FeatureExtractor, HfArgumentParser
-
 from datasets import load_dataset
-
-from src.processor import CustomWav2Vec2Processor
-from src.model import Wav2Vec2ForSequenceClassification
-from src.make_windows import stack_frames
-
-from sklearn.metrics import confusion_matrix, classification_report, accuracy_score
-
-import dataclasses
-from dataclasses import dataclass, field
-
+from sklearn.metrics import (accuracy_score, classification_report,
+                             confusion_matrix)
 from tqdm import tqdm
+from transformers import AutoConfig, HfArgumentParser, Wav2Vec2FeatureExtractor
+
+from src.baseline_utils.baseline_pl_model import BaselineClassifier
+from src.make_windows import stack_frames
+from src.model import Wav2Vec2ForSequenceClassification
+from src.processor import CustomWav2Vec2Processor
+
 
 @dataclass
 class EvalArguments:
@@ -151,10 +147,7 @@ def predict(batch):
     batch["scores"] = scores
     return batch
 
-
-def predict_file(path, sampling_rate):
-    """Predict single file"""
-    speech = speech_file_to_array_fn(path, sampling_rate)
+def wav2vec_predict_file(speech, sampling_rate):
     features = processor(
         speech, sampling_rate=sampling_rate, return_tensors="pt", padding=True
     )
@@ -164,6 +157,17 @@ def predict_file(path, sampling_rate):
 
     with torch.no_grad():
         logits = model(input_values, attention_mask=attention_mask).logits
+    return logits
+
+
+def predict_file(path, sampling_rate):
+    """Predict single file"""
+    speech = speech_file_to_array_fn(path, sampling_rate)
+    if eval_args.model_type == "wav2vec":
+        logits = wav2vec_predict_file
+    else:
+        with torch.no_grad():
+            logits = model(speech)    
 
     scores = F.softmax(logits, dim=0).detach().cpu().numpy()[0]
     pred = config.id2label[np.argmax(scores)]
@@ -171,12 +175,10 @@ def predict_file(path, sampling_rate):
     return pred, confidence, scores
 
 
-def predict_windows(path, sampling_rate, aggregation_fn=lambda x: np.mean(x, axis=0)):
-    """Create windows from an input file and output aggregated predictions"""
-    speech_windows = stack_speech_file_to_array(path)
+def wav2vec_predict_windows(speech_windows: np.array, sampling_rate):
     features = processor(
-        speech_windows, sampling_rate=sampling_rate, return_tensors="pt", padding=True
-    )
+            speech_windows, sampling_rate=sampling_rate, return_tensors="pt", padding=True
+        )
     # needs to remove first dimension if more than one window
     # squeeze doesn't work if only 1 window (removes two dimensions)
     input_values = features.input_values.to(device).flatten(0, 1)
@@ -184,6 +186,16 @@ def predict_windows(path, sampling_rate, aggregation_fn=lambda x: np.mean(x, axi
 
     with torch.no_grad():
         logits = model(input_values, attention_mask=attention_mask).logits
+    return logits
+
+def predict_windows(path, sampling_rate, aggregation_fn=lambda x: np.mean(x, axis=0)):
+    """Create windows from an input file and output aggregated predictions"""
+    speech_windows = stack_speech_file_to_array(path)
+    if eval_args.model_type == "wav2vec":
+        logits = wav2vec_predict_windows(speech_windows, sampling_rate)
+    else:
+        with torch.no_grad():
+            logits = model(speech_windows)
 
     # check if this is correct (might need to remove dim=0)
     scores = [F.softmax(logit, dim=0).detach().cpu().numpy() for logit in logits]
@@ -243,13 +255,20 @@ if __name__ == "__main__":
     eval_args = eval_args[0]
     # setup model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    config = AutoConfig.from_pretrained(eval_args.model_path)
-    feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(eval_args.model_path)
-    processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
-    target_sampling_rate = processor.feature_extractor.sampling_rate
-    model = Wav2Vec2ForSequenceClassification.from_pretrained(eval_args.model_path).to(
-        device
-    )
+    
+    if eval_args.model_type == "wav2vec":
+        config = AutoConfig.from_pretrained(eval_args.model_path)
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(eval_args.model_path)
+        processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
+        model = Wav2Vec2ForSequenceClassification.from_pretrained(eval_args.model_path).to(
+            device
+        )
+    elif eval_args.model_type in ["embedding_baseline", "cnn_baseline"]:
+        model = BaselineClassifier.load_from_checkpoint(eval_args.model_path)
+    else:
+        raise SyntaxError(f"{eval_args.model_type} not a valid model type. Use either 'wav2vec', 'embedding_baseline', or 'cnn_baseline'") 
+
+    target_sampling_rate = 16000
 
     model.eval()
     # print("[INFO] Loading dataset...")
@@ -342,4 +361,3 @@ if __name__ == "__main__":
             test.groupby("id").apply(calculate_grouped_performance).apply(pd.Series)
         )
         print_performance(test_by_id, eval_args.label_col, "prediction_grouped")
-
