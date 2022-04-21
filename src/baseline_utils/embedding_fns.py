@@ -25,7 +25,7 @@ def get_embedding_fns():
         savedir="pretrained_models/spkrec-xvect-voxceleb",
     )
 
-    def xvector_embedding_fn(audio):
+    def xvector_embedding_fn(audio) -> torch.tensor:
         # shape = (batch, 512)
         if isinstance(audio, np.ndarray):
             audio=torch.tensor(audio)
@@ -36,9 +36,10 @@ def get_embedding_fns():
              feature_level=opensmile.FeatureLevel.Functionals,
          )
 
-    def egemaps_embedding_fn(audio):
+    def egemaps_embedding_fn(audio) -> torch.tensor:
         # shape = (batch, 88)
-        return egemapsv2.process_signal(audio, sampling_rate=16000).to_numpy().squeeze()
+        embeddings = [egemapsv2.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
+        return torch.tensor(embeddings)
 
 
     compare = opensmile.Smile(
@@ -47,17 +48,20 @@ def get_embedding_fns():
         num_workers=10,
     )
 
-    def compare_embedding_fn(audio):
+    def compare_embedding_fn(audio) -> torch.tensor:
         # shape = (batch, 6373)
-        return compare.process_signal(audio, sampling_rate=16000).to_numpy().squeeze()
+        embeddings = [compare.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
+        return torch.tensor(embeddings)
 
 
     mel_extractor = MelSpectrogram(sample_rate=16000, n_mels=128)
 
-    def aggregated_mfccs_fn(audio):
+    def aggregated_mfccs_fn(audio) -> torch.tensor:
         # shape = (batch, 128)
+        if isinstance(audio, np.ndarray):
+            audio = torch.tensor(audio).type(torch.float)
         mfccs = mel_extractor(audio)
-        return torch.mean(mfccs, 1)
+        return torch.mean(mfccs, 2)
 
 
     def windowed_mfccs_fn(audio):
