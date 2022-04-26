@@ -1,7 +1,7 @@
 
 import torch
 
-from torchaudio.transforms import MelSpectrogram
+from torchaudio.transforms import MelSpectrogram, MFCC
 from speechbrain.pretrained import EncoderClassifier
 from speechbrain.lobes.features import MFCC
 
@@ -38,7 +38,11 @@ def get_embedding_fns():
 
     def egemaps_embedding_fn(audio) -> torch.tensor:
         # shape = (batch, 88)
-        embeddings = [egemapsv2.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
+        # if only 1 file (e.g. in dataloader) just embed the 1 file
+        if len(audio.shape) == 1:
+            embeddings = egemapsv2.process_signal(audio, sampling_rate=16000).to_numpy().squeeze()
+        else:
+            embeddings = [egemapsv2.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
         return torch.tensor(embeddings)
 
 
@@ -50,23 +54,26 @@ def get_embedding_fns():
 
     def compare_embedding_fn(audio) -> torch.tensor:
         # shape = (batch, 6373)
-        embeddings = [compare.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
+        if len(audio.shape) == 1:
+            embeddings = compare.process_signal(audio, sampling_rate=16000).to_numpy().squeeze()
+        else:
+            embeddings = [compare.process_signal(a, sampling_rate=16000).to_numpy().squeeze() for a in audio]
         return torch.tensor(embeddings)
 
 
-    mel_extractor = MelSpectrogram(sample_rate=16000, n_mels=128)
+    mfcc_extractor = MFCC(sample_rate=16000, n_mfcc=40, dct_type=2, norm="ortho", log_mels=False)
 
     def aggregated_mfccs_fn(audio) -> torch.tensor:
         # shape = (batch, 128)
         if isinstance(audio, np.ndarray):
             audio = torch.tensor(audio).type(torch.float)
-        mfccs = mel_extractor(audio)
+        mfccs = mfcc_extractor(audio)
         return torch.mean(mfccs, 2)
 
 
     def windowed_mfccs_fn(audio):
         # shape = (batch, n_mels, samples (401)))
-        return mel_extractor(audio)
+        return mfcc_extractor(audio)
 
 
 
@@ -77,7 +84,4 @@ def get_embedding_fns():
         "aggregated_mfccs" : aggregated_mfccs_fn,
         "windowed_mfccs" : windowed_mfccs_fn,
         }
-
-
-
 
