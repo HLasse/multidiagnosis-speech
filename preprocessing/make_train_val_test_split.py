@@ -1,13 +1,41 @@
 """Creates the training/validation/test split.
-Test split contains 6 IDs from each diagnostic group, balanced by gender, that both have audio and transcriptions.
+Test split contains 6 IDs + their matching controls from each diagnostic group, balanced by gender, that both have audio and transcriptions.
 Validation split contains 6 IDs from each diagnostic group, balanced by gender.
 Only few ASD in the validation set have transcriptions, (as only few ASD have transcriptions).
 The splits needs to be processed by ´preproc_audio.py´ before they can be input to ´train_wav2vec.py´
+
 """
 
 import pandas as pd
 from pathlib import Path
 import numpy as np
+
+
+
+def sample_even_distribution(df_in: pd.DataFrame, metadata_df: pd.DataFrame, n_samples=3):
+    df_test = df_in.groupby(["Diagnosis", "Gender"]).sample(n_samples)
+    # Get matching controls
+    test_matching_controls = [get_matching_control(id) for id in df_test["ID"]]
+    controls = df[df["ID"].isin(test_matching_controls)]
+
+    if df_test.shape[0] == controls.shape[0]:
+        return pd.concat([df_test, controls])
+    else:
+        return sample_even_distribution(df_in, metadata_df, n_samples)
+
+
+
+def get_matching_control(id):
+    split_id = id.split("_")
+    split_id[1] = "TD"
+    ## if id = ASD and study 1, add 100 to get the matching control
+    if split_id[0] == "ASD" and split_id[2] == "1":
+        split_id[3] = str(int(split_id[3]) + 100) 
+    ## Same TD is matched to both chronic and 1ep depression    
+    if split_id[0] == "DEPR" and split_id[2] == "2":
+        split_id[2] = "1"
+    control_id = "_".join(split_id)
+    return control_id
 
 if __name__ == "__main__":
 
@@ -42,15 +70,22 @@ if __name__ == "__main__":
     )
     print(df_both_audio_and_transcripts.groupby(["Diagnosis", "Gender"])["ID"].describe())
 
-    df_test = df_both_audio_and_transcripts.groupby(["Diagnosis", "Gender"]).sample(3)
-
-    df_no_test = df.drop(df_test.index)
-
+    ## Remove TDs from dataset before sampling
+    df_both_audio_and_transcripts_no_td = df_both_audio_and_transcripts[df_both_audio_and_transcripts["Diagnosis"] != "TD"]
     # remove the F/M gender to be able to stratify sampling
-    df_no_test_no_fm_gender = df_no_test[~(df_no_test["Gender"] == "F/M")]
+    df_both_audio_and_transcripts_no_td = df_both_audio_and_transcripts_no_td[df_both_audio_and_transcripts_no_td["Gender"] != "F/M"]
 
-    df_val = df_no_test_no_fm_gender.groupby(["Diagnosis", "Gender"]).sample(3)
+    # sample 3 from each group diagnostic group + matching controls for test set
+    df_test = sample_even_distribution(df_both_audio_and_transcripts_no_td, df)
+    
+    # remove test set from remaining data
+    df_no_test = df.drop(df_test.index)
+    df_both_audio_and_transcripts_no_td_no_test = df_both_audio_and_transcripts_no_td.drop(df_test[df_test["Diagnosis"] != "TD"].index)
+    
+    # sample for validation set
+    df_val = sample_even_distribution(df_both_audio_and_transcripts_no_td_no_test, df_no_test)
 
+    # train set is the remainder
     df_train = df_no_test.drop(df_val.index)
 
     ## save splits
@@ -62,21 +97,16 @@ if __name__ == "__main__":
     df_val.to_csv(save_dir / "validation_split.csv", index=False)
     df_train.to_csv(save_dir / "train_split.csv", index=False)
 
-
-    print("Test IDs:")
-    print(
-        df_test[
-            ["ID", "Gender", "Diagnosis", "Diagnosis2", "Age", "Audio", "Transcription"]
-        ]
-    )
-
-    print("Validation IDs")
-    df_val[["ID", "Gender", "Diagnosis", "Diagnosis2", "Age", "Audio", "Transcription"]]
-
     print(f"{df_train.shape[0]} participants in train set")
 
     print("Diagnosis and gender distribution of train set")
     print(df_train.groupby(["Diagnosis", "Gender"])["ID"].describe()["count"])
+
+    print("Diagnosis and gender distribution of validation set")
+    print(df_val.groupby(["Diagnosis", "Gender"])["ID"].describe()["count"])
+
+    print("Diagnosis and gender distribution of test set")
+    print(df_test.groupby(["Diagnosis", "Gender"])["ID"].describe()["count"])
 
 
     # very few ASD with transcripts!
