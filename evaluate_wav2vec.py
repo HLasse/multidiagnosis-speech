@@ -20,8 +20,7 @@ import torch
 import torch.nn.functional as F
 import torchaudio
 from datasets import load_dataset
-from sklearn.metrics import (accuracy_score, classification_report,
-                             confusion_matrix)
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 from tqdm import tqdm
 from transformers import AutoConfig, HfArgumentParser, Wav2Vec2FeatureExtractor
 
@@ -29,12 +28,17 @@ from src.baseline_utils.baseline_pl_model import BaselineClassifier
 from src.processor import CustomWav2Vec2Processor
 from src.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
-from src.model import Wav2Vec2ForSequenceClassification
+from src.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.processor import CustomWav2Vec2Processor
 
 
 @dataclass
 class EvalArguments:
+    model_type: str = field(
+        metadata={
+            "help": "Model type: either 'wav2vec', 'embedding_baseline' or 'cnn_baseline'"
+        }
+    )
     model_path: str = field(default="", metadata={"help": "path to model"})
     data_path: str = field(
         default="data/audio_file_splits/audio_val_split.csv",
@@ -64,6 +68,10 @@ class EvalArguments:
     )
     metadata_path: Optional[str] = field(
         default=None, metadata={"help": "path to metadata if merging is desired"}
+    )
+    num_classes: int = field(default=4, metadata={"help": "number of classes"})
+    feature_set: str = field(
+        default=None, metadata={"Which feature set is used (baseline models only)"}
     )
 
 
@@ -150,6 +158,7 @@ def predict(batch):
     batch["scores"] = scores
     return batch
 
+
 def wav2vec_predict_file(speech, sampling_rate):
     features = processor(
         speech, sampling_rate=sampling_rate, return_tensors="pt", padding=True
@@ -167,10 +176,10 @@ def predict_file(path, sampling_rate):
     """Predict single file"""
     speech = speech_file_to_array_fn(path, sampling_rate)
     if eval_args.model_type == "wav2vec":
-        logits = wav2vec_predict_file
+        logits = wav2vec_predict_file(speech, sampling_rate)
     else:
         with torch.no_grad():
-            logits = model(speech)    
+            logits = model(speech)
 
     scores = F.softmax(logits, dim=0).detach().cpu().numpy()[0]
     pred = config.id2label[np.argmax(scores)]
@@ -180,8 +189,8 @@ def predict_file(path, sampling_rate):
 
 def wav2vec_predict_windows(speech_windows: np.array, sampling_rate):
     features = processor(
-            speech_windows, sampling_rate=sampling_rate, return_tensors="pt", padding=True
-        )
+        speech_windows, sampling_rate=sampling_rate, return_tensors="pt", padding=True
+    )
     # needs to remove first dimension if more than one window
     # squeeze doesn't work if only 1 window (removes two dimensions)
     input_values = features.input_values.to(device).flatten(0, 1)
@@ -190,6 +199,7 @@ def wav2vec_predict_windows(speech_windows: np.array, sampling_rate):
     with torch.no_grad():
         logits = model(input_values, attention_mask=attention_mask).logits
     return logits
+
 
 def predict_windows(path, sampling_rate, aggregation_fn=lambda x: np.mean(x, axis=0)):
     """Create windows from an input file and output aggregated predictions"""
@@ -258,18 +268,29 @@ if __name__ == "__main__":
     eval_args = eval_args[0]
     # setup model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    
+
     if eval_args.model_type == "wav2vec":
         config = AutoConfig.from_pretrained(eval_args.model_path)
-        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(eval_args.model_path)
-        processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
-        model = Wav2Vec2ForSequenceClassification.from_pretrained(eval_args.model_path).to(
-            device
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+            eval_args.model_path
         )
+        processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
+        model = Wav2Vec2ForSequenceClassification.from_pretrained(
+            eval_args.model_path
+        ).to(device)
     elif eval_args.model_type in ["embedding_baseline", "cnn_baseline"]:
-        model = BaselineClassifier.load_from_checkpoint(eval_args.model_path)
+        model = BaselineClassifier.load_from_checkpoint(
+            eval_args.model_path,
+            num_classes=eval_args.num_classes,
+            feature_set=eval_args.feature_set,
+            learning_rate=0,
+            train_loader=None,
+            val_loader=None,
+        )
     else:
-        raise SyntaxError(f"{eval_args.model_type} not a valid model type. Use either 'wav2vec', 'embedding_baseline', or 'cnn_baseline'") 
+        raise SyntaxError(
+            f"{eval_args.model_type} not a valid model type. Use either 'wav2vec', 'embedding_baseline', or 'cnn_baseline'"
+        )
 
     target_sampling_rate = 16000
 

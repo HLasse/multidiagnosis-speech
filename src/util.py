@@ -1,6 +1,7 @@
 import argparse
 import yaml
 
+
 def create_argparser(default_yml_path: str) -> argparse.ArgumentParser:
     """Creates an argparser from a yaml file. Where each component is a flag to set and
     each subcomponent is an argument to be passed to the argparse

@@ -1,5 +1,5 @@
 learning_rate: 
-  default: 0.001
+  default: 0.003
 auto_lr_find:
   default: False
   help: Should the model find the learning rate? Overwrites learning rate
@@ -9,8 +9,9 @@ batch_size:
   default: 120
 num_workers: 
   default: 12
-val_check_interval:
-  default: 15
+val_check_interval: 
+  default: 24
+  help: default 200
 gpus: 
   default: -1
   help: The number of GPUs to use, null indicate no GPUs
@@ -18,12 +19,12 @@ profiler:
   default: null
   help: Should a profiler such as "simple" be set.
 patience: 
-  default: 10
+  default: False
 max_epochs: 
-  default: 1500
-  help: Default 1500
+  default: 150
+  help: Default 200
 log_step:
-  default: 10
+  default: 100
   help: the log step of the model watch
 watch:
   default: False
@@ -33,3 +34,7 @@ default_root_dir:
 config:
   default: null
   help: Additional config which overwrites the default configs
+train_binary_models:
+  default: False
+train_multiclass_models:
+  default: True

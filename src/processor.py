@@ -41,7 +41,6 @@ class CustomWav2Vec2Processor:
         self.feature_extractor = feature_extractor
         self.current_processor = self.feature_extractor
 
-
     def save_pretrained(self, save_directory):
         """
         Save a Wav2Vec2 feature_extractor object and Wav2Vec2 tokenizer object to the directory ``save_directory``, so
@@ -90,7 +89,9 @@ class CustomWav2Vec2Processor:
                 Additional keyword arguments passed along to both :class:`~transformers.SequenceFeatureExtractor` and
                 :class:`~transformers.PreTrainedTokenizer`
         """
-        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(pretrained_model_name_or_path, **kwargs)
+        feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+            pretrained_model_name_or_path, **kwargs
+        )
 
         return cls(feature_extractor=feature_extractor)
 

@@ -1,7 +1,6 @@
 """Class to evaluate models.
 TODO
--  Turn into a superclass with an embedding and wav2vec subclass"""
-
+    -  Turn into a superclass with an embedding and wav2vec subclass"""
 
 import dataclasses
 import os
@@ -35,7 +34,6 @@ from .util import create_argparser
 class ModelEvaluator:
     def __init__(
         self,
-        model_type: str,
         model_path: str,
         save_dir: str = "results",
         data_path: str = "data/audio_file_splits/audio_val_split.csv",
@@ -46,10 +44,8 @@ class ModelEvaluator:
         window_length: int = 5,
         stride_length: float = 1,
         num_classes: int = 4,
-        feature_set: Optional[str] = None,
         id2label: Optional[dict] = None,
     ):
-        self.model_type = model_type
         self.model_path = model_path
         self.data_path = data_path
         self.input_col = input_col
@@ -60,15 +56,14 @@ class ModelEvaluator:
         self.window_length = window_length
         self.stride_length = stride_length
         self.num_classes = num_classes
-        self.feature_set = feature_set
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-        if self.model_type == "wav2vec":
-            self._setup_wav2vec_model()
-        if self.model_type == "embedding_baseline":
-            self._setup_embedding_baseline()
-        self.model.eval()
+        # if self.model_type == "wav2vec":
+        #     self._setup_wav2vec_model()
+        # if self.model_type == "embedding_baseline":
+        #     self._setup_embedding_baseline()
+        # self.model.eval()
 
         self.df = pd.read_csv(data_path)
 
@@ -76,43 +71,47 @@ class ModelEvaluator:
         if not id2label:
             if num_classes != 4:
                 raise ValueError("id2label must be set if less than 4 classes")
-            self.id2label = {"TD": 0, "DEPR": 1, "ASD": 2, "SCHZ": 3}
+            self.id2label = {0: "ASD", 1: "DEPR", 2: "SCHZ", 3: "TD"}
         else:
             self.id2label = id2label
 
-        if feature_set:
-            embedding_fns = get_embedding_fns()
-            self.embedding_fn = embedding_fns[feature_set]
+        # if feature_set:
+        #     embedding_fns = get_embedding_fns()
+        #     self.embedding_fn = embedding_fns[feature_set]
 
         tqdm.pandas()
 
     def evaluate_model(self):
         t0 = time.time()
-        print(f"Evaluating on {self.data_path} containing {len(self.df)} files.")
+        print(f"Evaluting on {self.data_path} containing {len(self.df)} files.")
         self.df = self.df.progress_apply(self.add_predicted_and_confidence, axis=1)
         print(f"Time taken: {time.time() - t0}")
 
-    def _setup_wav2vec_model(self):
-        """Loads the necesarry components for evaluating wav2vec models"""
-        self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
-            "facebook/wav2vec2-xls-r-300m"
-        )
-        self.processor = CustomWav2Vec2Processor(
-            feature_extractor=self.feature_extractor
-        )
-        self.model = Wav2Vec2ForSequenceClassification.from_pretrained(
-            self.model_path
-        ).to(self.device)
 
-    def _setup_embedding_baseline(self):
-        self.model = BaselineClassifier.load_from_checkpoint(
-            self.model_path,
-            num_classes=self.num_classes,
-            feature_set=self.feature_set,
-            learning_rate=0,
-            train_loader=None,
-            val_loader=None,
-        )
+    def setup_model(self):
+        pass
+
+    # def _setup_wav2vec_model(self):
+    #     """Loads the necesarry components for evaluating wav2vec models"""
+    #     self.feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
+    #         "facebook/wav2vec2-xls-r-300m"
+    #     )
+    #     self.processor = CustomWav2Vec2Processor(
+    #         feature_extractor=self.feature_extractor
+    #     )
+    #     self.model = Wav2Vec2ForSequenceClassification.from_pretrained(
+    #         self.model_path
+    #     ).to(self.device)
+
+    # def _setup_embedding_baseline(self):
+    #     self.model = BaselineClassifier.load_from_checkpoint(
+    #         self.model_path,
+    #         num_classes=self.num_classes,
+    #         feature_set=self.feature_set,
+    #         learning_rate=0,
+    #         train_loader=None,
+    #         val_loader=None,
+    #     )
 
     def add_predicted_and_confidence(self, df):
         if self.use_windowing:
@@ -120,14 +119,15 @@ class ModelEvaluator:
         else:
             pred, confidence, scores = self._predict(df[self.input_col])
 
-        df["prediction"] = pred
-        df["confidence"] = confidence
-        df["scores"] = scores
+        df["prediction_audio"] = pred
+        df["confidence_audio"] = confidence
+        df["scores_audio"] = scores
         return df
 
     def _predict_windows(self, path: str):
         """Use model on a windowed audio file"""
         speech_windows = self.stack_speech_file_to_array(path)
+        logits = 
         if self.model_type == "wav2vec":
             logits = self._wav2vec_predict_windows(speech_windows)
         if self.model_type == "embedding_baseline":
@@ -190,21 +190,13 @@ class ModelEvaluator:
         )
         return windowed_arrays
 
-    def save_to_json(self, filename):
-        split = str(self.data_path).split("_")[-2]
+    def save_to_csv(self, filename):
         save_dir = Path(self.save_dir)
         if not save_dir.exists():
             save_dir.mkdir()
         save_path = save_dir / filename
-
-        # add needed info and format correctly
-        self.df["binary"] = True if self.num_classes == 2 else False
-        self.df["type"] = "audio"
-        self.df["split"] = split
-        self.df["model_name"] = str(self.model_path).split("/")[-2]
-
         print(f"[INFO] Saving results to {save_path}")
-        self.df.to_json(save_path, orient="records", lines=True)
+        self.df.to_csv(save_dir / filename, index=False)
 
     def _print_performance(self, df, prediction_col):
         """Print model performance"""
@@ -215,7 +207,7 @@ class ModelEvaluator:
         print(f"Accuracy: {acc}")
 
     def print_performance(self):
-        self._print_performance(self.df, "prediction")
+        self._print_performance(self.df, "prediction_audio")
 
     def print_performance_by_id(self):
         print(f"[INFO] Performance by id:")
@@ -229,7 +221,7 @@ class ModelEvaluator:
     def _calculate_grouped_performance(self, df):
         """Calculates performance on a grouped variable, assuming 'scores' contains
         softmaxed model output"""
-        scores = np.array(df["scores"].tolist())
+        scores = np.array(df["scores_audio"].tolist())
         # calculating average score per group (return this too?)
         mean_scores = scores.mean(axis=0)
         prediction = np.argmax(mean_scores)
@@ -245,6 +237,7 @@ if __name__ == "__main__":
     import fire
 
     fire.Fire(ModelEvaluator)
+
     # yml_path = os.path.join(
     #     os.getcwd(),
     #     "configs",

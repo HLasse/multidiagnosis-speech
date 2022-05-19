@@ -307,7 +307,11 @@ if __name__ == "__main__":
     # sorting for determinism
     label_list.sort()
     num_labels = len(label_list)
-
+    print(f"[INFO] {num_labels} labels: {label_list}")
+    label2id = {label: i for i, label in enumerate(label_list)}
+    id2label = {i: label for i, label in enumerate(label_list)}
+    print(f"label2id: {label2id}")
+    print(f"id2label: {id2label}")
     # train = train.select([0])
 
     # Load feature extractor
@@ -353,8 +357,8 @@ if __name__ == "__main__":
     config = AutoConfig.from_pretrained(
         io_args.model_name,
         num_labels=num_labels,
-        label2id={label: i for i, label in enumerate(label_list)},
-        id2label={i: label for i, label in enumerate(label_list)},
+        label2id=label2id,
+        id2label=id2label,
         finetuning_task="wav2vec2_clf",
         **dataclasses.asdict(model_args),
     )

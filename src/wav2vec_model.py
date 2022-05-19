@@ -15,12 +15,12 @@ from transformers.modeling_outputs import SequenceClassifierOutput
 
 class Wav2Vec2ClassificationHead(nn.Module):
     """Head for classification tasks
-        Layers:
-        # - dropout
-        - dense layer (default xlsr hidden size = 1024)
-        - relu
-        - dropout
-        - classificiation layer of size num_labels
+    Layers:
+    # - dropout
+    - dense layer (default xlsr hidden size = 1024)
+    - relu
+    - dropout
+    - classificiation layer of size num_labels
     """
 
     def __init__(self, config):

@@ -51,3 +51,23 @@ class MultiDiagnosisDataset(Dataset):
             audio = self.embedding_fn(audio)
         label = self.labels[idx]
         return audio, label
+
+
+
+if __name__ == "__main__":
+    from torch.utils.data import DataLoader
+    train_files = "data/audio_file_splits/audio_train_split.csv"
+    train = pd.read_csv(train_files)
+    train = train[train["duration"] >= 5]
+    mapping = {"ASD": 0, "DEPR": 1, "SCHZ": 2, "TD": 3}
+    train["label_id"] = train.label.replace(mapping)
+
+    diagnosis = "ASD"
+    train_set = train[train["origin"] == diagnosis]
+
+    dataset = MultiDiagnosisDataset(train_set["file"].tolist(), train_set["label_id"].tolist())
+    dataloader = DataLoader(dataset, batch_size=1, num_workers=2)
+
+    dat_load = iter(dataloader)
+    for i in range(100):
+        x, labs = next(dat_load)

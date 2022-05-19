@@ -40,6 +40,10 @@ def subset_by_id(audio_files_df: pd.DataFrame, id_df: pd.DataFrame):
     return df
 
 
+def subset_by_study(df: pd.DataFrame, diagnosis: str):
+    return df[df["OverallStudy"] == diagnosis]
+
+
 if __name__ == "__main__":
 
     # Set seed for reproducibility
@@ -61,39 +65,51 @@ if __name__ == "__main__":
 
     for diagnosis in ["ASD", "SCHZ", "DEPR"]:
         print(f"[INFO] Processing {diagnosis}...")
+        # Strategy 0: Keep matched controls
+        sub_train = subset_by_study(all_train, diagnosis)
+        sub_val = subset_by_study(all_val, diagnosis)
+        sub_test = subset_by_study(all_test, diagnosis)
 
         sub_val = subset_df_by_diagnosis(all_val, diagnosis)
         sub_test = subset_df_by_diagnosis(all_test, diagnosis)
-
-        # Strategy 1: keep all TD
-        sub_train = subset_df_by_diagnosis(all_train, diagnosis)
-        # Strategy 2: even number of TD as diagnosis
-        even_train = sample_td_to_diagnosis_ratio(
-            sub_train, diagnosis=diagnosis, td_to_diagnosis_ratio=1
-        )
-        # Strategy 3: 1.5 more TD than diagnosis
-        more_td = sample_td_to_diagnosis_ratio(
-            sub_train, diagnosis=diagnosis, td_to_diagnosis_ratio=1.5
-        )
+        # # Strategy 1: keep all TD
+        # sub_train = subset_df_by_diagnosis(all_train, diagnosis)
+        # # Strategy 2: even number of TD as diagnosis
+        # even_train = sample_td_to_diagnosis_ratio(
+        #     sub_train, diagnosis=diagnosis, td_to_diagnosis_ratio=1
+        # )
+        # # Strategy 3: 1.5 more TD than diagnosis
+        # more_td = sample_td_to_diagnosis_ratio(
+        #     sub_train, diagnosis=diagnosis, td_to_diagnosis_ratio=1.5
+        # )
 
         # Save different strategies
-        filename = f"{diagnosis}_train_split"
+        # filename = f"{diagnosis}_train_split"
         # Subsample all audio files by the ids obtained above and save
 
         print("[INFO] Number of files...")
         subset_by_id(all_audio_files, sub_train).to_csv(
-            SAVE_DIR / (filename + "_all_td.csv"), index=False
+            SAVE_DIR / (diagnosis + "_train_split.csv"), index=False
         )
-        subset_by_id(all_audio_files, even_train).to_csv(
-            SAVE_DIR / (filename + "_even_td.csv"), index=False
-        )
-        subset_by_id(all_audio_files, more_td).to_csv(
-            SAVE_DIR / (filename + "_2_to_3_ratio_td.csv"), index=False
-        )
-
         subset_by_id(all_audio_files, sub_val).to_csv(
-            SAVE_DIR / f"{diagnosis}_validation_split.csv", index=False
+            SAVE_DIR / (diagnosis + "_val_split.csv"), index=False
         )
         subset_by_id(all_audio_files, sub_test).to_csv(
-            SAVE_DIR / f"{diagnosis}_test_split.csv", index=False
+            SAVE_DIR / (diagnosis + "_test_split.csv"), index=False
         )
+        # subset_by_id(all_audio_files, sub_train).to_csv(
+        #     SAVE_DIR / (filename + "_all_td.csv"), index=False
+        # )
+        # subset_by_id(all_audio_files, even_train).to_csv(
+        #     SAVE_DIR / (filename + "_even_td.csv"), index=False
+        # )
+        # subset_by_id(all_audio_files, more_td).to_csv(
+        #     SAVE_DIR / (filename + "_2_to_3_ratio_td.csv"), index=False
+        # )
+
+        # subset_by_id(all_audio_files, sub_val).to_csv(
+        #     SAVE_DIR / f"{diagnosis}_validation_split.csv", index=False
+        # )
+        # subset_by_id(all_audio_files, sub_test).to_csv(
+        #     SAVE_DIR / f"{diagnosis}_test_split.csv", index=False
+        # )

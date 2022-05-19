@@ -1,5 +1,3 @@
-
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -16,6 +14,7 @@ from torchmetrics import (
     Precision,
     Recall,
     F1Score,
+    Accuracy,
     ConfusionMatrix,
     StatScores,
 )
@@ -23,13 +22,13 @@ from torchmetrics import (
 
 class BaselineClassifier(pl.LightningModule):
     def __init__(
-        self, 
-        num_classes: int, 
-        feature_set: str, 
-        learning_rate: float, 
-        train_loader: DataLoader, 
-        val_loader: DataLoader
-        ):
+        self,
+        num_classes: int,
+        feature_set: str,
+        learning_rate: float,
+        train_loader: DataLoader,
+        val_loader: DataLoader,
+    ):
         super(BaselineClassifier, self).__init__()
 
         self.num_classes = num_classes
@@ -40,7 +39,7 @@ class BaselineClassifier(pl.LightningModule):
         input_dims = {
             "xvector": 512,
             "egemaps": 88,
-            "aggregated_mfccs": 128,
+            "aggregated_mfccs": 40,
             "compare": 6373,
         }
 
@@ -51,11 +50,11 @@ class BaselineClassifier(pl.LightningModule):
                 Precision(average="macro", num_classes=num_classes),
                 Recall(average="macro", num_classes=num_classes),
                 F1Score(average="macro", num_classes=num_classes),
+                Accuracy(average="macro", num_classes=num_classes),
             ]
         )
         self.train_metrics = metrics.clone(prefix="train_")
         self.val_metrics = metrics.clone(prefix="val_")
-
 
     def forward(self, x):
         x = F.leaky_relu(self.linear(x))

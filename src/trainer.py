@@ -10,8 +10,12 @@ from torch import nn
 from transformers import (
     Trainer,
 )
+
+
 class CTCTrainer(Trainer):
-    def training_step(self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]) -> torch.Tensor:
+    def training_step(
+        self, model: nn.Module, inputs: Dict[str, Union[torch.Tensor, Any]]
+    ) -> torch.Tensor:
         """
         Perform a training step on a batch of inputs.
         Subclass and override to inject custom behavior.
@@ -29,7 +33,7 @@ class CTCTrainer(Trainer):
         model.train()
         inputs = self._prepare_inputs(inputs)
         loss = self.compute_loss(model, inputs)
-        
+
         if self.args.gradient_accumulation_steps > 1:
             loss = loss / self.args.gradient_accumulation_steps
 
@@ -39,10 +43,9 @@ class CTCTrainer(Trainer):
 
     def compute_loss(self, model, inputs, return_outputs=False):
         # labels = inputs.pop("labels").to('cuda')
-        labels = inputs['labels'].to('cuda')
-        outputs = model(**inputs) # torch.Size([32, 5])
+        labels = inputs["labels"].to("cuda")
+        outputs = model(**inputs)  # torch.Size([32, 5])
         loss_fct = torch.nn.CrossEntropyLoss()
-        loss = loss_fct(outputs['logits'],
-                        labels)
-        
+        loss = loss_fct(outputs["logits"], labels)
+
         return (loss, outputs) if return_outputs else loss

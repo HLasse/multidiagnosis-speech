@@ -5,7 +5,7 @@ import math
 
 sig = np.arange(0, 20)
 sampling_rate = 1
-frame_length = 22
+frame_length = 5
 frame_stride = 2
 zero_padding = True
 
@@ -21,7 +21,6 @@ def stack_frames(
     remove_zero_padding=False,
 ):
     """Frame a signal into overlapping frames.
-
     Args:
         sig (array): The audio signal to frame of size (N,).
         sampling_rate (int): The sampling frequency of the signal.
@@ -34,10 +33,8 @@ def stack_frames(
             be done for generating last frame.
         keep_short_signal:  Return the original signal if shorter than frame_length.
         remove_zero_padding: Remove trailing zeros from last element following zero padding
-
     Returns:
             array: Stacked_frames-Array of frames of size (number_of_frames x frame_len).
-
     """
 
     # Check dimension
@@ -121,3 +118,5 @@ def stack_frames(
 l = stack_frames(
     sig, sampling_rate, frame_length, frame_stride, remove_zero_padding=False
 )
+
+stack_frames(sig, 1, 4, 1)
