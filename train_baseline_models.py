@@ -20,16 +20,14 @@ from src.util import create_argparser
 
 
 def create_dataloaders(
-    train_data: pd.DataFrame, val_data: pd.DataFrame, config, embedding_fn
+    train_data: pd.DataFrame, val_data: pd.DataFrame, config, embedding_fn, augment_fn=None
 ) -> Tuple[DataLoader, DataLoader]:
     training_data = MultiDiagnosisDataset(
-        train_data["file"].tolist(),
-        train_data["label_id"].tolist(),
-        embedding_fn=embedding_fn,
+        train_data, embedding_fn=embedding_fn, augment_fn=augment_fn
     )
 
     validation_data = MultiDiagnosisDataset(
-        val_data["file"].tolist(), val_data["label_id"].tolist(), embedding_fn=embedding_fn
+        val_data, embedding_fn=embedding_fn, augment_fn=augment_fn
     )
 
     train_loader = DataLoader(
@@ -83,22 +81,23 @@ if __name__ == "__main__":
     arguments = parser.parse_args()
 
     # Load data files
-    train = load_dataset("data/audio_file_splits/windowed_splits/windowed_train_split.parquet")
-    val = load_dataset("parquet", data_files={"val" : "data/audio_file_splits/windowed_splits/windowed_train_split.parquet"})
+    dataset = load_dataset("parquet", data_dir="data/audio_file_splits/windowed_splits")
 
-    train_files = "data/audio_file_splits/audio_train_split.csv"
-    val_files = "data/audio_file_splits/audio_val_split.csv"
-
-    train = pd.read_csv(train_files)
-    train = train[train["duration"] >= 5]
-
-    val = pd.read_csv(val_files)
-    val = val[val["duration"] >= 5]
+    train = dataset["train"]
+    val = dataset["validation"]
 
     mapping = {"TD": 0, "DEPR": 1, "ASD": 2, "SCHZ": 3}
 
+    ## TODO make this work with datasets
     train["label_id"] = train.label.replace(mapping)
     val["label_id"] = val.label.replace(mapping)
+
+    train.set_format(
+        type="torch", columns=["audio", "token_type_ids", "attention_mask", "label"]
+    )
+    val.set_format(
+        type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "label"]
+    )
 
     embedding_fn_dict = get_embedding_fns()
     #########################
@@ -108,11 +107,11 @@ if __name__ == "__main__":
         for diagnosis in ["ASD", "DEPR", "SCHZ"]:
             msg.divider(f"Training {diagnosis}")
 
-
+            ## TODO make this work with datasets
             train_set = train[train["origin"] == diagnosis].reset_index()
             val_set = val[val["origin"] == diagnosis].reset_index()
 
-            mapping = {diagnosis : 0, "TD" : 1}
+            mapping = {diagnosis: 0, "TD": 1}
             train_set["label_id"] = train_set["label"].replace(mapping)
             val_set["label_id"] = val_set["label"].replace(mapping)
 
@@ -163,7 +162,6 @@ if __name__ == "__main__":
                 # Finish tracking run on wandb to start the next one
                 run.finish()
 
-
     #############################
     ##### Multiclass models #####
     #############################
@@ -209,7 +207,9 @@ if __name__ == "__main__":
                 run.log({"lr_finder.plot": fig})
                 run.log({"found_lr": lr_finder.suggestion()})
 
-            trainer.fit(model, train_dataloaders=train_loader, val_dataloaders=val_loader)
+            trainer.fit(
+                model, train_dataloaders=train_loader, val_dataloaders=val_loader
+            )
 
             # Finish tracking run on wandb to start the next one
             run.finish()
