@@ -52,7 +52,8 @@
             "console": "integratedTerminal",
             "env": {
                 "PYTHONPATH": "wav2vec_finetune"
-            }
+            },
+            "justMyCode": true
         }
     ]
 }

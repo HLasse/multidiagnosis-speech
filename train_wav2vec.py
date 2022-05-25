@@ -346,7 +346,7 @@ if __name__ == "__main__":
         train = train.map(preprocess, batched=True)
         val = val.map(preprocess, batched=True)
 
-    # shuffle rows of training set (necesarry?)
+    # shuffle rows of training set 
     train = train.shuffle(seed=42)
 
     ################### LOAD MODEL

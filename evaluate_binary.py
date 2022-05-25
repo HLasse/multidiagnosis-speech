@@ -11,13 +11,18 @@ if __name__ == "__main__":
     NUM_CLASSES = 2
     MODEL_TYPE = "embedding_baseline"
 
-    BASE_SPLIT_PATH = Path("/work") / "wav2vec_finetune" / "data" / "audio_file_splits" / "binary_splits"
+    BASE_SPLIT_PATH = (
+        Path("/work")
+        / "wav2vec_finetune"
+        / "data"
+        / "audio_file_splits"
+        / "binary_splits"
+    )
     BASE_MODEL_PATH = Path("/work") / "wav2vec_finetune" / "baseline_models"
 
     for diagnosis in ["ASD", "DEPR", "SCHZ"]:
         msg.info(f"Evaluating {diagnosis}..")
-        id2label = {0 : diagnosis, 1: "TD"}
-
+        id2label = {0: diagnosis, 1: "TD"}
 
         for split in ["train", "val"]:
             msg.info(f"Split: {split}")
@@ -34,6 +39,13 @@ if __name__ == "__main__":
                 if (Path("results") / save_name).exists():
                     msg.info(f"{save_name} already exists. Skipping...")
                     continue
-                evaluator = ModelEvaluator(model_type=MODEL_TYPE, model_path=ckpt, feature_set=feature_set, data_path=data_path, num_classes=NUM_CLASSES, id2label=id2label)
+                evaluator = ModelEvaluator(
+                    model_type=MODEL_TYPE,
+                    model_path=ckpt,
+                    feature_set=feature_set,
+                    data_path=data_path,
+                    num_classes=NUM_CLASSES,
+                    id2label=id2label,
+                )
                 evaluator.evaluate_model()
                 evaluator.save_to_json(save_name)

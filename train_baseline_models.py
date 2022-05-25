@@ -1,13 +1,15 @@
 import os
-from typing import Tuple
+from functools import partial
+from typing import Tuple, Union, List
 
 import pandas as pd
 import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torch_audiomentations
 import wandb
-from datasets import load_dataset
+from datasets import Dataset, concatenate_datasets, load_dataset
 from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
@@ -18,16 +20,23 @@ from src.baseline_utils.dataloader import MultiDiagnosisDataset
 from src.baseline_utils.embedding_fns import get_embedding_fns
 from src.util import create_argparser
 
+from pathlib import Path
 
 def create_dataloaders(
-    train_data: pd.DataFrame, val_data: pd.DataFrame, config, embedding_fn, augment_fn=None
+    train_filepaths: Union[pd.Series, List],
+    train_labels: Union[pd.Series, List],
+    val_filepaths: Union[pd.Series, List],
+    val_labels: Union[pd.Series, List],
+    config,
+    embedding_fn,
+    augment_fn=None,
 ) -> Tuple[DataLoader, DataLoader]:
     training_data = MultiDiagnosisDataset(
-        train_data, embedding_fn=embedding_fn, augment_fn=augment_fn
+        train_filepaths, train_labels, embedding_fn=embedding_fn, augment_fn=augment_fn
     )
 
     validation_data = MultiDiagnosisDataset(
-        val_data, embedding_fn=embedding_fn, augment_fn=augment_fn
+        val_filepaths, val_labels, embedding_fn=embedding_fn, augment_fn=augment_fn
     )
 
     train_loader = DataLoader(
@@ -59,7 +68,7 @@ def create_trainer(config) -> pl.Trainer:
     trainer = pl.Trainer(
         logger=wandb_cb,
         log_every_n_steps=config.log_step,
-        val_check_interval=config.val_check_interval,
+        check_val_every_n_epoch=config.check_val_every_n_epoch,
         callbacks=callbacks,
         gpus=config.gpus,
         profiler=config.profiler,
@@ -72,49 +81,63 @@ def create_trainer(config) -> pl.Trainer:
     return trainer
 
 
+def label2id(col, mapping):
+    return {"label_id": mapping[col]}
+
+
 if __name__ == "__main__":
     # Load hyperparam config
     yml_path = os.path.join(
         os.path.dirname(__file__), "configs", "baseline_configs", "default_config.yaml"
     )
+
+    SPLIT_PATH = Path("data") / "audio_file_splits" / "windowed_splits"
     parser = create_argparser(yml_path)
     arguments = parser.parse_args()
-
+    msg.info(f"ARGS: {' '.join(f'{k}={v}' for k, v in vars(arguments).items())}")
     # Load data files
-    dataset = load_dataset("parquet", data_dir="data/audio_file_splits/windowed_splits")
+    train = pd.read_csv(SPLIT_PATH / "windowed_train_split.csv")
+    val = pd.read_csv(SPLIT_PATH / "windowed_validation_split.csv")
+    # Shuffle dataset
+    train = train.sample(frac=1).reset_index(drop=True)
+    
+    # Prepare augmentation function
+    if arguments.augmentations:
+        augmenter = torch_audiomentations.utils.config.from_yaml(
+            arguments.augmentations
+        )
+        augment_fn = partial(augmenter, sample_rate=16_000)
+    else:
+        augment_fn = None
 
-    train = dataset["train"]
-    val = dataset["validation"]
+    # Subset data for faster debugging
+    if arguments.debug:
+        msg.info(f"Debug mode: using 1000 random samples")
+        train = train.sample(200)
+        val = val.sample(200)
 
-    mapping = {"TD": 0, "DEPR": 1, "ASD": 2, "SCHZ": 3}
-
-    ## TODO make this work with datasets
-    train["label_id"] = train.label.replace(mapping)
-    val["label_id"] = val.label.replace(mapping)
-
-    train.set_format(
-        type="torch", columns=["audio", "token_type_ids", "attention_mask", "label"]
-    )
-    val.set_format(
-        type="torch", columns=["input_ids", "token_type_ids", "attention_mask", "label"]
-    )
-
+    # Get functions for making embeddings
     embedding_fn_dict = get_embedding_fns()
+
     #########################
     ##### Binary models #####
     #########################
     if arguments.train_binary_models:
         for diagnosis in ["ASD", "DEPR", "SCHZ"]:
+            ## Prepare data, subset and make label mapping
             msg.divider(f"Training {diagnosis}")
 
-            ## TODO make this work with datasets
-            train_set = train[train["origin"] == diagnosis].reset_index()
-            val_set = val[val["origin"] == diagnosis].reset_index()
+            msg.info("Subsetting...")
+            train_set = train[train["origin"] == diagnosis]
+            val_set = val[val["origin"] == diagnosis]
 
             mapping = {diagnosis: 0, "TD": 1}
             train_set["label_id"] = train_set["label"].replace(mapping)
             val_set["label_id"] = val_set["label"].replace(mapping)
 
+            msg.info(f"Training on {len(train_set)} samples")            
+            msg.info(f"Evaluating on {len(val_set)} samples")
+            # Instantiate dataloader and trainer and train
             for feat_set in embedding_fn_dict.keys():
                 if feat_set in ["windowed_mfccs"]:
                     continue
@@ -135,7 +158,13 @@ if __name__ == "__main__":
 
                 # Create dataloaders, model, and trainer
                 train_loader, val_loader = create_dataloaders(
-                    train_set, val_set, config, embedding_fn_dict[feat_set]
+                    train_set["filename"].tolist(),
+                    train_set["label_id"].tolist(),
+                    val_set["filename"].tolist(),
+                    val_set["label_id"].tolist(),
+                    config,
+                    embedding_fn=embedding_fn_dict[feat_set],
+                    augment_fn=augment_fn,
                 )
                 model = BaselineClassifier(
                     num_classes=2,
@@ -166,6 +195,12 @@ if __name__ == "__main__":
     ##### Multiclass models #####
     #############################
     if arguments.train_multiclass_models:
+        mapping = {"TD": 0, "DEPR": 1, "ASD": 2, "SCHZ": 3}
+        
+        # map label to idx
+        train["label_id"] = train["label"].replace(mapping)
+        val["label_id"] = train["label"].replace(mapping)
+
         msg.divider("Training multiclass models")
         for feat_set in embedding_fn_dict.keys():
             if feat_set in ["windowed_mfccs"]:
@@ -187,7 +222,13 @@ if __name__ == "__main__":
 
             # Create dataloaders, model, and trainer
             train_loader, val_loader = create_dataloaders(
-                train, val, config, embedding_fn_dict[feat_set]
+                train["filename"].tolist(),
+                train["label_id"].tolist(),
+                val["filename"].tolist(),
+                val["label_id"].tolist(),
+                config, 
+                embedding_fn=embedding_fn_dict[feat_set], 
+                augment_fn=augment_fn
             )
             model = BaselineClassifier(
                 num_classes=4,

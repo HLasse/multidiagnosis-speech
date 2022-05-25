@@ -12,28 +12,32 @@ import numpy as np
 class MultiDiagnosisDataset(Dataset):
     def __init__(
         self,
-        data: Dataset,  # should contain an "audio" and "label_id" column
+        paths: Union[pd.Series, List],  # path to audio files
+        labels: Union[pd.Series, List], 
         augment_fn: Callable = None,
         embedding_fn: Callable = None,
-        sample_rate: int = 16000,
-        window_size: int = 5,
     ):
-        self.data = data
+        self.paths = paths
+        self.labels = labels
         self.augment_fn = augment_fn
         self.embedding_fn = embedding_fn
-        self.sample_rate = sample_rate
-        self.window_size = window_size
 
     def __len__(self):
-        return len(self.data)
+        return len(self.labels)
 
     def __getitem__(self, idx):
-        audio = self.data["audio"][idx]
+        audio, _ = torchaudio.load(self.paths[idx])
         if self.augment_fn:
+            # torch_audiomentations expects inputs of shape (batch_size, num_channels, num_samples)
+            # adding a batch dimension
+            if len(audio.shape) == 2:
+                audio = audio[None, :, :]
             audio = self.augment_fn(audio)
+            # Remove the extra dimension again
+            audio = audio.squeeze()
         if self.embedding_fn:
             audio = self.embedding_fn(audio)
-        label = self.data["label_idx"][idx]
+        label = self.labels[idx]
         return audio, label
 
 
