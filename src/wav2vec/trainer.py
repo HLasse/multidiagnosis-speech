@@ -1,22 +1,13 @@
 """Subclassed Huggingface Trainer to allow for class weights to handle unbalanced groups"""
 
-from typing import Any, Dict, Union
-
-import torch
-from packaging import version
-from torch import nn
-
-from transformers import (
-    Trainer,
-)
 
 from torch import nn
 from transformers import Trainer
 
 
 class TrainerWithWeights(Trainer):
-    def __init__(self, weights):
-        self.super.__init__()
+    def __init__(self, *args, weights, **kwargs):
+        super().__init__(*args, **kwargs)
         self.weights = weights
 
     def compute_loss(self, model, inputs, return_outputs=False):
