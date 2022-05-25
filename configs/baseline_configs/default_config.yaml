@@ -6,12 +6,12 @@ auto_lr_find:
 precision:
   default: 16
 batch_size:
-  default: 120
+  default: 32
 num_workers: 
-  default: 12
-val_check_interval: 
-  default: 24
-  help: default 200
+  default: 30
+check_val_every_n_epoch:
+  default: 1
+  help: validate every n epoch
 gpus: 
   default: -1
   help: The number of GPUs to use, null indicate no GPUs
@@ -21,20 +21,24 @@ profiler:
 patience: 
   default: False
 max_epochs: 
-  default: 150
+  default: 20
   help: Default 200
 log_step:
-  default: 100
+  default: 1500
   help: the log step of the model watch
 watch:
   default: False
   help: Should wandb watch be activated?
 default_root_dir:
-  default: /work/wav2vec_finetune/baseline_models
+  default: /work/wav2vec_finetune/baseline_models_v2
 config:
   default: null
   help: Additional config which overwrites the default configs
 train_binary_models:
-  default: False
+  default: True
 train_multiclass_models:
   default: True
+debug:
+  default: False
+augmentations:
+  default: "configs/augmentation_config.yml"

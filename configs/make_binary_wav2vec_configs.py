@@ -32,10 +32,18 @@ BASE_CONFIG = {
     "fp16": True,
     "save_total_limit": 2,
     "load_best_model_at_end": True,
-    "save_strategy": "epoch"
+    "save_strategy": "epoch",
 }
 
-def make_config(model_name: str, train: str, validation: str, augmentations: str, output_dir: str, run_name: str):
+
+def make_config(
+    model_name: str,
+    train: str,
+    validation: str,
+    augmentations: str,
+    output_dir: str,
+    run_name: str,
+):
     config = BASE_CONFIG.copy()
     config["model_name"] = model_name
     config["train"] = train
@@ -45,13 +53,14 @@ def make_config(model_name: str, train: str, validation: str, augmentations: str
     config["run_name"] = run_name
     return config
 
+
 if __name__ == "__main__":
     CONFIG_DIR = Path("configs") / "wav2vec_configs"
     if not CONFIG_DIR.exists():
         CONFIG_DIR.mkdir()
     BASE_OUTPUT_DIR = Path("wav2vec_models")
     classes = ["multiclass", "ASD", "DEPR", "SCHZ"]
-    
+
     augmentations = ["configs/augmentation_config.yml", ""]
 
     model_types = ["Alvenir/wav2vec-base-da", "facebook/wav2vec2-xls-r-300m"]
@@ -75,11 +84,13 @@ if __name__ == "__main__":
                     model_run_name = "alvenir"
                 elif "xls-r" in model:
                     model_run_name = "xls-r"
-                
+
                 run_name = f"{model_run_name}_{c}_{aug_run_name}"
                 output_dir = str(BASE_OUTPUT_DIR / run_name)
-            
-                config = make_config(model, train, validation, aug, output_dir, run_name)
+
+                config = make_config(
+                    model, train, validation, aug, output_dir, run_name
+                )
 
                 file_name = CONFIG_DIR / f"{run_name}.json"
                 with open(file_name, "w") as f:

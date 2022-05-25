@@ -15,7 +15,7 @@ This is necessary because in speech input and output are of different modalities
 same padding function. Analogous to the common data collators, the padding tokens in the labels with -100 so that those tokens 
 are not taken into account when computing the loss."""
 
- 
+
 @dataclass
 class DataCollatorCTCWithInputPadding:
     """
