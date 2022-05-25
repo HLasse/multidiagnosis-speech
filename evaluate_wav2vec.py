@@ -25,11 +25,11 @@ from tqdm import tqdm
 from transformers import AutoConfig, HfArgumentParser, Wav2Vec2FeatureExtractor
 
 from src.baseline_utils.baseline_pl_model import BaselineClassifier
-from src.processor import CustomWav2Vec2Processor
-from src.wav2vec_model import Wav2Vec2ForSequenceClassification
+from src.wav2vec.processor import CustomWav2Vec2Processor
+from src.wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
-from src.wav2vec_model import Wav2Vec2ForSequenceClassification
-from src.processor import CustomWav2Vec2Processor
+from src.wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
+from src.wav2vec.processor import CustomWav2Vec2Processor
 
 
 @dataclass

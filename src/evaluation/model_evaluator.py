@@ -21,15 +21,15 @@ from sklearn.metrics import accuracy_score, classification_report, confusion_mat
 from tqdm import tqdm
 from transformers import AutoConfig, HfArgumentParser, Wav2Vec2FeatureExtractor
 
-from .baseline_utils.baseline_pl_model import BaselineClassifier
-from .processor import CustomWav2Vec2Processor
-from .wav2vec_model import Wav2Vec2ForSequenceClassification
-from .make_windows import stack_frames
-from .wav2vec_model import Wav2Vec2ForSequenceClassification
-from .processor import CustomWav2Vec2Processor
-from .baseline_utils.embedding_fns import get_embedding_fns
+from ..baseline_utils.baseline_pl_model import BaselineClassifier
+from ..wav2vec.processor import CustomWav2Vec2Processor
+from ..wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
+from ..make_windows import stack_frames
+from ..wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
+from ..wav2vec.processor import CustomWav2Vec2Processor
+from ..baseline_utils.embedding_fns import get_embedding_fns
 
-from .util import create_argparser
+from ..util import create_argparser
 
 
 class ModelEvaluator:

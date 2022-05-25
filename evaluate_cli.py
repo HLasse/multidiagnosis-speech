@@ -4,7 +4,7 @@ python evaluate_cli.py --model_name baseline_aggregated_mfccs --feature_set aggr
 
 import os
 import fire
-from src.model_evaluator import ModelEvaluator
+from src.evaluation.model_evaluator import ModelEvaluator
 from wasabi import msg
 
 

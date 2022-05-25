@@ -41,13 +41,13 @@ from functools import partial
 
 # implement option to resume from checkpoint
 
-from src.data_collator import (
+from src.wav2vec.data_collator import (
     DataCollatorCTCWithInputPadding,
     DataCollatorCTCWithPaddingKlaam,
 )
-from src.trainer import CTCTrainer
-from src.processor import CustomWav2Vec2Processor
-from src.wav2vec_model import Wav2Vec2ForSequenceClassification
+from src.wav2vec.trainer import CTCTrainer
+from src.wav2vec.processor import CustomWav2Vec2Processor
+from src.wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
 from src.make_windows import stack_frames
 
 

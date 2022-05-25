@@ -1,3 +1,4 @@
+from sklearn.utils import compute_class_weight
 import torch
 from torch.utils.data import Dataset
 import torchaudio
@@ -23,6 +24,8 @@ class MultiDiagnosisDataset(Dataset):
         self.embedding_fn = embedding_fn
         self.sample_rate = sample_rate
         self.window_size = window_size
+
+        weights = compute_class_weight(class_weight="balanced")
 
     def __len__(self):
         return len(self.data)

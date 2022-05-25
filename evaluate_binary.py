@@ -1,6 +1,6 @@
 import os
 
-from src.model_evaluator import ModelEvaluator
+from evaluation.model_evaluator import ModelEvaluator
 
 from pathlib import Path
 
