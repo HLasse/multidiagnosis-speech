@@ -1,19 +1,18 @@
 transform: Compose
 params:
   shuffle: True
-  p: 0.7
+  p: 1
   transforms:
     - transform: Gain
       params:
-        p: 0.2
+        p: 0.5
     - transform: AddColoredNoise
       params:
-        p: 0.2
+        p: 0.5
     - transform: ApplyImpulseResponse
       params:
         ir_paths: augmentation_files/ir/Audio
-        p: 0.2
-    - transform: PitchShift
+        p: 0.5
+    - transform: SpliceOut
       params:
-        sample_rate: 16000
-        p: 0.2
+        p: 0.5
