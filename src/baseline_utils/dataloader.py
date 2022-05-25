@@ -3,7 +3,6 @@ import torch
 from torch.utils.data import Dataset
 import torchaudio
 
-from datasets import Dataset
 from typing import Callable, Union, List
 import pandas as pd
 
@@ -22,14 +21,6 @@ class MultiDiagnosisDataset(Dataset):
         self.labels = labels
         self.augment_fn = augment_fn
         self.embedding_fn = embedding_fn
-
-        # Compute weights to avoid overfitting to majority class
-        weights = compute_class_weight(
-            class_weight="balanced",
-            classes=list(range(len(set(self.labels)))),
-            y=[int(l) for l in self.labels],
-        )
-        self.weights = torch.tensor(weights, dtype=torch.half)
 
     def __len__(self):
         return len(self.labels)

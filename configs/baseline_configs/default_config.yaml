@@ -39,6 +39,9 @@ train_binary_models:
 train_multiclass_models:
   default: True
 debug:
-  default: False
+  default: True
 augmentations:
   default: "configs/augmentation_config.yml"
+use_weights: 
+  default: True
+  help: Use weights to account for unbalanced classes

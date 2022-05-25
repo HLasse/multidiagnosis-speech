@@ -20,6 +20,8 @@ from src.baseline_utils.dataloader import MultiDiagnosisDataset
 from src.baseline_utils.embedding_fns import get_embedding_fns
 from src.util import create_argparser
 
+from sklearn.utils import compute_class_weight
+
 from pathlib import Path
 
 def create_dataloaders(
@@ -166,12 +168,23 @@ if __name__ == "__main__":
                     embedding_fn=embedding_fn_dict[feat_set],
                     augment_fn=augment_fn,
                 )
+
+                if config.use_weights:
+                    # compute weights to avoid overfitting on majority class
+                    weights = torch.tensor(compute_class_weight('balanced', 
+                                            classes=list(range(len(train_set["label_id"].unique()))), 
+                                            y=train_set["label_id"].tolist()),
+                           dtype=torch.float)
+                else:
+                    weights = None
+
                 model = BaselineClassifier(
                     num_classes=2,
                     feature_set=feat_set,
                     learning_rate=config.learning_rate,
                     train_loader=train_loader,
                     val_loader=val_loader,
+                    weights=weights
                 )
                 trainer = create_trainer(config)
 

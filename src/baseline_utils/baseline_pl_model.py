@@ -16,7 +16,7 @@ from torchmetrics import (
     Recall,
     StatScores,
 )
-
+from typing import Optional
 
 class BaselineClassifier(pl.LightningModule):
     def __init__(
@@ -26,7 +26,7 @@ class BaselineClassifier(pl.LightningModule):
         learning_rate: float,
         train_loader: DataLoader,
         val_loader: DataLoader,
-        use_weights: bool,
+        weights: Optional[np.ndarray] = None,
     ):
         super(BaselineClassifier, self).__init__()
 
@@ -34,7 +34,7 @@ class BaselineClassifier(pl.LightningModule):
         self.learning_rate = learning_rate
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.weights = train_loader.weights if use_weights else None
+        self.weights = weights
 
         input_dims = {
             "xvector": 512,
