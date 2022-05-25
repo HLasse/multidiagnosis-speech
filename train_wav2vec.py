@@ -14,6 +14,7 @@ from functools import partial
 from typing import Optional, Union
 
 import numpy as np
+from sklearn.utils import compute_class_weight
 import torch
 import torch_audiomentations
 import torchaudio
@@ -38,9 +39,10 @@ from src.wav2vec.data_collator import (
     DataCollatorCTCWithInputPadding,
     DataCollatorCTCWithPaddingKlaam,
 )
+from src.wav2vec.trainer import TrainerWithWeights
 from src.wav2vec.processor import CustomWav2Vec2Processor
-from src.wav2vec.trainer import CTCTrainer
 from src.wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
+
 
 # implement option to resume from checkpoint
 
@@ -166,7 +168,7 @@ def preprocess_stacked_speech_files(batch):
     speech_list = [
         stack_speech_file_to_array(path) for path in batch[io_args.input_col]
     ]
-    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
+    labels = [label2id[label] for label in batch[io_args.label_col]]
     n_windows = [len(window) for window in speech_list]
 
     processed_list = [
@@ -195,15 +197,10 @@ def preprocess_stacked_speech_files(batch):
     return out
 
 
-def label_to_id(label, label_list):
-    "map label to id int"
-    return label_list.index(label)
-
-
 def preprocess(batch):
     "preprocess hf dataset/load data"
     speech_list = [speech_file_to_array(path) for path in batch[io_args.input_col]]
-    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
+    labels = [label2id[label] for label in batch[io_args.label_col]]
 
     out = processor(speech_list, sampling_rate=target_sampling_rate)
     out["labels"] = list(labels)
@@ -386,7 +383,15 @@ if __name__ == "__main__":
         model.freeze_base_model()
         print("[INFO] Freezing entire base model...")
 
-    trainer = Trainer(
+    ## Calculate weights
+    weights = torch.tensor(
+        compute_class_weight(
+            "balanced", classes=list(range(num_labels)), y=train["labels"]
+        ),
+        dtype=torch.float,
+    )
+
+    trainer = TrainerWithWeights(
         model=model,
         data_collator=data_collator,
         args=training_args,
@@ -394,6 +399,7 @@ if __name__ == "__main__":
         train_dataset=train,
         eval_dataset=val,
         tokenizer=processor.feature_extractor,
+        weights=weights,
     )
 
     # Train!
