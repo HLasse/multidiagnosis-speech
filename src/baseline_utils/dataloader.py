@@ -14,7 +14,7 @@ class MultiDiagnosisDataset(Dataset):
     def __init__(
         self,
         paths: Union[pd.Series, List],  # path to audio files
-        labels: Union[pd.Series, List], 
+        labels: Union[pd.Series, List],
         augment_fn: Callable = None,
         embedding_fn: Callable = None,
     ):
@@ -23,7 +23,13 @@ class MultiDiagnosisDataset(Dataset):
         self.augment_fn = augment_fn
         self.embedding_fn = embedding_fn
 
-        weights = compute_class_weight(class_weight="balanced")
+        # Compute weights to avoid overfitting to majority class
+        weights = compute_class_weight(
+            class_weight="balanced",
+            classes=list(range(len(set(self.labels)))),
+            y=[int(l) for l in self.labels],
+        )
+        self.weights = torch.tensor(weights, dtype=torch.half)
 
     def __len__(self):
         return len(self.labels)
