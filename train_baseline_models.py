@@ -170,11 +170,12 @@ if __name__ == "__main__":
                 )
 
                 if config.use_weights:
+                    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                     # compute weights to avoid overfitting on majority class
                     weights = torch.tensor(compute_class_weight('balanced', 
                                             classes=list(range(len(train_set["label_id"].unique()))), 
                                             y=train_set["label_id"].tolist()),
-                           dtype=torch.float)
+                           dtype=torch.float).to(device)
                 else:
                     weights = None
 
