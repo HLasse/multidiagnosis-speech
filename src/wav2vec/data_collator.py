@@ -78,7 +78,7 @@ class DataCollatorCTCWithInputPadding:
             # adding dimension
             if len(batch["input_values"].shape) == 2:
                 batch["input_values"] = batch["input_values"][:, None, :]
-            batch["input_values"] = self.augmentation_fn(batch["input_values"])
+            batch["input_values"] = self.augmentation_fn(batch["input_values"]).samples
             # an extra dimension is added _somewhere_ before input to to the model
             # need to remove the channel dimension again
             batch["input_values"] = batch["input_values"].squeeze()

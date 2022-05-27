@@ -389,7 +389,7 @@ if __name__ == "__main__":
             "balanced", classes=list(range(num_labels)), y=train["labels"]
         ),
         dtype=torch.float,
-    )
+    ).to(torch.device("cuda"))
 
     trainer = TrainerWithWeights(
         model=model,
