@@ -1,5 +1,5 @@
 learning_rate: 
-  default: 0.0003
+g  default: 0.0003
 auto_lr_find:
   default: False
   help: Should the model find the learning rate? Overwrites learning rate
