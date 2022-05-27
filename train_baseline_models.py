@@ -20,6 +20,8 @@ from src.baseline_utils.dataloader import MultiDiagnosisDataset
 from src.baseline_utils.embedding_fns import get_embedding_fns
 from src.util import create_argparser
 
+from constants import MULTICLASS_LABEL2ID_MAPPING
+
 from sklearn.utils import compute_class_weight
 
 from pathlib import Path
@@ -133,7 +135,7 @@ if __name__ == "__main__":
             train_set = train[train["origin"] == diagnosis]
             val_set = val[val["origin"] == diagnosis]
 
-            mapping = {diagnosis: 0, "TD": 1}
+            mapping = {"TD": 0, diagnosis: 1}
             train_set["label_id"] = train_set["label"].replace(mapping)
             val_set["label_id"] = val_set["label"].replace(mapping)
 
@@ -209,11 +211,10 @@ if __name__ == "__main__":
     ##### Multiclass models #####
     #############################
     if arguments.train_multiclass_models:
-        mapping = {"TD": 0, "DEPR": 1, "ASD": 2, "SCHZ": 3}
-        
+
         # map label to idx
-        train["label_id"] = train["label"].replace(mapping)
-        val["label_id"] = train["label"].replace(mapping)
+        train["label_id"] = train["label"].replace(MULTICLASS_LABEL2ID_MAPPING)
+        val["label_id"] = train["label"].replace(MULTICLASS_LABEL2ID_MAPPING)
 
         msg.divider("Training multiclass models")
         for feat_set in embedding_fn_dict.keys():

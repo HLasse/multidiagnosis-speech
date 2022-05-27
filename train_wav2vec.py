@@ -4,51 +4,47 @@ TODO
 - experiment with parameters (lower learning rate)
 - add support for resuming training from checkpoint
 """
-import os
-import sys
+import dataclasses
 import logging
+import os
 import random
-
-from typing import Union, Optional
+import sys
+from dataclasses import dataclass, field
+from functools import partial
+from typing import Optional, Union
 
 import numpy as np
+from sklearn.utils import compute_class_weight
 import torch
-import torchaudio
-import wandb
-
 import torch_audiomentations
-
-import dataclasses
-from dataclasses import dataclass, field
-from datasets import load_dataset
-
-from pydantic import validate_arguments
-
+import torchaudio
 import transformers
+import wandb
+from datasets import load_dataset
+from pydantic import validate_arguments
 from transformers import (
-    HfArgumentParser,
-    AutoConfig,
-    Wav2Vec2FeatureExtractor,
-    #    Wav2Vec2ForSequenceClassification,
+    AutoConfig,  # Wav2Vec2ForSequenceClassification,
     EvalPrediction,
-    TrainingArguments,
+    HfArgumentParser,
     Trainer,
+    TrainingArguments,
+    Wav2Vec2FeatureExtractor,
     set_seed,
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
-from functools import partial
-
-# implement option to resume from checkpoint
-
+from constants import MULTICLASS_ID2LABEL_MAPPING, MULTICLASS_LABEL2ID_MAPPING
+from src.make_windows import stack_frames
 from src.wav2vec.data_collator import (
     DataCollatorCTCWithInputPadding,
     DataCollatorCTCWithPaddingKlaam,
 )
-from src.wav2vec.trainer import CTCTrainer
+from src.wav2vec.trainer import TrainerWithWeights
 from src.wav2vec.processor import CustomWav2Vec2Processor
 from src.wav2vec.wav2vec_model import Wav2Vec2ForSequenceClassification
-from src.make_windows import stack_frames
+
+
+# implement option to resume from checkpoint
 
 
 # from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
@@ -172,7 +168,7 @@ def preprocess_stacked_speech_files(batch):
     speech_list = [
         stack_speech_file_to_array(path) for path in batch[io_args.input_col]
     ]
-    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
+    labels = [label2id[label] for label in batch[io_args.label_col]]
     n_windows = [len(window) for window in speech_list]
 
     processed_list = [
@@ -201,15 +197,10 @@ def preprocess_stacked_speech_files(batch):
     return out
 
 
-def label_to_id(label, label_list):
-    "map label to id int"
-    return label_list.index(label)
-
-
 def preprocess(batch):
     "preprocess hf dataset/load data"
     speech_list = [speech_file_to_array(path) for path in batch[io_args.input_col]]
-    labels = [label_to_id(label, label_list) for label in batch[io_args.label_col]]
+    labels = [label2id[label] for label in batch[io_args.label_col]]
 
     out = processor(speech_list, sampling_rate=target_sampling_rate)
     out["labels"] = list(labels)
@@ -304,12 +295,17 @@ if __name__ == "__main__":
         val = val.flatten_indices()
     # get labels and num labels
     label_list = train.unique(io_args.label_col)
-    # sorting for determinism
-    label_list.sort()
     num_labels = len(label_list)
     print(f"[INFO] {num_labels} labels: {label_list}")
-    label2id = {label: i for i, label in enumerate(label_list)}
-    id2label = {i: label for i, label in enumerate(label_list)}
+    # Setting correct mapping
+    if num_labels == 4:
+        label2id = MULTICLASS_LABEL2ID_MAPPING
+        id2label = MULTICLASS_ID2LABEL_MAPPING
+    if num_labels == 2:
+        diagnosis = [x for x in label_list if x != "TD"][0]
+        label2id = {"TD": 0, diagnosis: 1}
+        id2label = {0: "TD", 1: diagnosis}
+
     print(f"label2id: {label2id}")
     print(f"id2label: {id2label}")
     # train = train.select([0])
@@ -346,7 +342,7 @@ if __name__ == "__main__":
         train = train.map(preprocess, batched=True)
         val = val.map(preprocess, batched=True)
 
-    # shuffle rows of training set 
+    # shuffle rows of training set
     train = train.shuffle(seed=42)
 
     ################### LOAD MODEL
@@ -387,7 +383,15 @@ if __name__ == "__main__":
         model.freeze_base_model()
         print("[INFO] Freezing entire base model...")
 
-    trainer = Trainer(
+    ## Calculate weights
+    weights = torch.tensor(
+        compute_class_weight(
+            "balanced", classes=list(range(num_labels)), y=train["labels"]
+        ),
+        dtype=torch.float,
+    )
+
+    trainer = TrainerWithWeights(
         model=model,
         data_collator=data_collator,
         args=training_args,
@@ -395,6 +399,7 @@ if __name__ == "__main__":
         train_dataset=train,
         eval_dataset=val,
         tokenizer=processor.feature_extractor,
+        weights=weights,
     )
 
     # Train!
