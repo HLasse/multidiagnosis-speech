@@ -34,6 +34,9 @@ class MultiDiagnosisDataset(Dataset):
                 audio = audio[None, :, :]
             audio = self.augment_fn(audio)
             # Remove the extra dimension again
+            # newer version of torch audiomentations return a dict, take only the samples
+            if isinstance(audio, dict):
+                audio = audio.samples
             audio = audio.squeeze()
         if self.embedding_fn:
             audio = self.embedding_fn(audio)
