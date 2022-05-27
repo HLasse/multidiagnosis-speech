@@ -1,5 +1,5 @@
 learning_rate: 
-  default: 0.003
+  default: 0.0003
 auto_lr_find:
   default: False
   help: Should the model find the learning rate? Overwrites learning rate
@@ -30,7 +30,7 @@ watch:
   default: False
   help: Should wandb watch be activated?
 default_root_dir:
-  default: /work/wav2vec_finetune/baseline_models_v2
+  default: /work/wav2vec_finetune/baseline_models_v3
 config:
   default: null
   help: Additional config which overwrites the default configs
@@ -39,7 +39,7 @@ train_binary_models:
 train_multiclass_models:
   default: True
 debug:
-  default: True
+  default: False
 augmentations:
   default: "configs/augmentation_config.yml"
 use_weights: 
