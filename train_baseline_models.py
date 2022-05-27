@@ -40,7 +40,7 @@ def create_dataloaders(
     )
 
     validation_data = MultiDiagnosisDataset(
-        val_filepaths, val_labels, embedding_fn=embedding_fn, augment_fn=augment_fn
+        val_filepaths, val_labels, embedding_fn=embedding_fn
     )
 
     train_loader = DataLoader(
