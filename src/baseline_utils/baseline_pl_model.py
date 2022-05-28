@@ -57,6 +57,9 @@ class BaselineClassifier(pl.LightningModule):
         self.val_metrics = metrics.clone(prefix="val_")
 
     def forward(self, x):
+        if len(x.shape) == 3:
+            # HOTFIX weird stuff going on with some of the embeddings
+            x = x.squeeze()
         x = F.leaky_relu(self.linear(x))
         x = self.classifier(x)
 
