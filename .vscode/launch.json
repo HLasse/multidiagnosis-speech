@@ -21,8 +21,9 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "configs/multiclass_models/test_config.json"
-            ]
+                "configs/wav2vec_configs/alvenir_ASD_aug.json"
+            ],
+            "justMyCode": false
         },
         {
             "name": "Debug schizo",

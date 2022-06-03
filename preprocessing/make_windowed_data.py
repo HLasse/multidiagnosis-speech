@@ -6,6 +6,7 @@ import torch
 
 sys.path.append("/work/wav2vec_finetune")
 from src.make_windows import stack_frames
+from constants import WINDOW_SIZE, WINDOW_STRIDE
 
 import torchaudio
 
@@ -22,8 +23,8 @@ def stack_speech_file_to_array(path):
     windowed_arrays = stack_frames(
         speech_array.squeeze(),
         sampling_rate=TARGET_SAMPLING_RATE,
-        frame_length=WINDOW_LENGTH,
-        frame_stride=STRIDE_LENGTH,
+        frame_length=WINDOW_SIZE,
+        frame_stride=WINDOW_STRIDE,
     )
     return windowed_arrays
 
@@ -70,8 +71,6 @@ def audio_to_file(example):
 if __name__ == "__main__":
 
     TARGET_SAMPLING_RATE = 16000
-    WINDOW_LENGTH = 5
-    STRIDE_LENGTH = 1
     INPUT_COL = "file"
 
     DATA_DIR = Path("data") / "audio_file_splits"

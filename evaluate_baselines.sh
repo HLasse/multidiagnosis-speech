@@ -1,0 +1,2 @@
+python evaluate_binary.py
+python evaluate_multiclass.py

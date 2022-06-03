@@ -133,6 +133,7 @@ json_files/
 preproc_data/
 model/
 wandb/
+wav2vec_models
 *.csv
 *.wav
 

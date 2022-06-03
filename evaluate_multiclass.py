@@ -1,4 +1,5 @@
 import os
+from constants import MULTICLASS_ID2LABEL_MAPPING
 
 from src.evaluation.model_evaluator import ModelEvaluator
 
@@ -12,11 +13,11 @@ if __name__ == "__main__":
     MODEL_TYPE = "embedding_baseline"
 
     BASE_SPLIT_PATH = Path("/work") / "wav2vec_finetune" / "data" / "audio_file_splits"
-    BASE_MODEL_PATH = Path("/work") / "wav2vec_finetune" / "baseline_models"
+    BASE_MODEL_PATH = Path("/work") / "wav2vec_finetune" / "baseline_models_v3"
 
-    id2label = {0: "TD", 1: "DEPR", 2: "ASD", 3: "SCHZ"}
+    id2label = MULTICLASS_ID2LABEL_MAPPING
 
-    for split in ["train", "val"]:
+    for split in ["train", "val", "test"]:
         msg.info(f"Split: {split}")
         data_path = BASE_SPLIT_PATH / f"audio_{split}_split.csv"
         for model in BASE_MODEL_PATH.glob(f"*multiclass*"):

@@ -148,8 +148,8 @@ class ModelEvaluator:
         )
         # needs to remove first dimension if more than one window
         # squeeze doesn't work if only 1 window (removes two dimensions)
-        input_values = features.input_values.to(device).flatten(0, 1)
-        attention_mask = features.attention_mask.to(device).flatten(0, 1)
+        input_values = features.input_values.to(self.device).flatten(0, 1)
+        attention_mask = features.attention_mask.to(self.device).flatten(0, 1)
 
         with torch.no_grad():
             logits = self.model(input_values, attention_mask=attention_mask).logits

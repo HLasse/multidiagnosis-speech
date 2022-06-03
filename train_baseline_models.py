@@ -10,7 +10,7 @@ import torch.nn.functional as F
 import torch_audiomentations
 import wandb
 from datasets import Dataset, concatenate_datasets, load_dataset
-from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint
+from pytorch_lightning.callbacks import EarlyStopping, ModelCheckpoint, Callback
 from pytorch_lightning.loggers import WandbLogger
 from torch.utils.data import DataLoader
 from wasabi import msg
@@ -25,6 +25,7 @@ from constants import MULTICLASS_LABEL2ID_MAPPING
 from sklearn.utils import compute_class_weight
 
 from pathlib import Path
+
 
 def create_dataloaders(
     train_filepaths: Union[pd.Series, List],
@@ -63,7 +64,7 @@ def create_trainer(config) -> pl.Trainer:
             save_top_k=1,
             save_last=True,
             every_n_epochs=1,
-        )
+        ),
     ]
     if config.patience:
         early_stopping = EarlyStopping("val_loss", patience=config.patience)
@@ -83,6 +84,7 @@ def create_trainer(config) -> pl.Trainer:
         auto_lr_find=config.auto_lr_find,
     )
     return trainer
+
 
 
 def label2id(col, mapping):
@@ -145,6 +147,9 @@ if __name__ == "__main__":
             for feat_set in embedding_fn_dict.keys():
                 if feat_set in ["windowed_mfccs"]:
                     continue
+                # remove this..
+                if diagnosis == "ASD" and feat_set == "xvector":
+                    continue 
                 msg.info(f"Starting {feat_set}...")
                 # setup wandb config
                 run = wandb.init(

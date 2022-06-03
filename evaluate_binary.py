@@ -1,6 +1,6 @@
 import os
 
-from evaluation.model_evaluator import ModelEvaluator
+from src.evaluation.model_evaluator import ModelEvaluator
 
 from pathlib import Path
 
@@ -18,13 +18,13 @@ if __name__ == "__main__":
         / "audio_file_splits"
         / "binary_splits"
     )
-    BASE_MODEL_PATH = Path("/work") / "wav2vec_finetune" / "baseline_models"
+    BASE_MODEL_PATH = Path("/work") / "wav2vec_finetune" / "baseline_models_v3"
 
     for diagnosis in ["ASD", "DEPR", "SCHZ"]:
         msg.info(f"Evaluating {diagnosis}..")
-        id2label = {0: diagnosis, 1: "TD"}
+        id2label = {0: "TD", 1: diagnosis}
 
-        for split in ["train", "val"]:
+        for split in ["train", "val", "test"]:
             msg.info(f"Split: {split}")
             data_path = BASE_SPLIT_PATH / f"{diagnosis}_{split}_split.csv"
             for model in BASE_MODEL_PATH.glob(f"*{diagnosis}*"):

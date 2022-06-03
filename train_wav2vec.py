@@ -33,7 +33,7 @@ from transformers import (
 )
 from transformers.trainer_utils import get_last_checkpoint, is_main_process
 
-from constants import MULTICLASS_ID2LABEL_MAPPING, MULTICLASS_LABEL2ID_MAPPING
+from constants import MULTICLASS_ID2LABEL_MAPPING, MULTICLASS_LABEL2ID_MAPPING, WINDOW_SIZE, WINDOW_STRIDE
 from src.make_windows import stack_frames
 from src.wav2vec.data_collator import (
     DataCollatorCTCWithInputPadding,
@@ -77,10 +77,6 @@ class IOArguments:
     use_windowing: bool = field(
         default=True, metadata={"help": "segment files into windows"}
     )
-    window_length: int = field(default=5, metadata={"help": "window length in seconds"})
-    stride_length: Union[int, float] = field(
-        default=1.0, metadata={"help": "stride length in seconds"}
-    )
     augmentations: str = field(
         default="",
         metadata={
@@ -122,9 +118,6 @@ class ModelArguments:
         default=0.05, metadata={"help": "probability of masking time dimension"}
     )
     layerdrop: float = field(default=0.1, metadata={"help": "layer dropout rate"})
-    gradient_checkpointing: bool = field(
-        default=True, metadata={"help": "enable gradient checkpointing"}
-    )
     ctc_loss_reduction: str = field(
         default="sum", metadata={"help": "reduction for ctc loss"}
     )
@@ -156,8 +149,8 @@ def stack_speech_file_to_array(path):
     windowed_arrays = stack_frames(
         speech_array.squeeze(),
         sampling_rate=target_sampling_rate,
-        frame_length=io_args.window_length,
-        frame_stride=io_args.stride_length,
+        frame_length=WINDOW_SIZE,
+        frame_stride=WINDOW_STRIDE,
     )
     return windowed_arrays
 
@@ -324,7 +317,7 @@ if __name__ == "__main__":
     print("[INFO] Preprocessing dataset...")
     if io_args.use_windowing:
         print(
-            f"[INFO] Using windows of size {io_args.window_length} and stride {io_args.stride_length}"
+            f"[INFO] Using windows of size {WINDOW_SIZE} and stride {WINDOW_STRIDE}"
         )
         train = train.map(
             preprocess_stacked_speech_files,

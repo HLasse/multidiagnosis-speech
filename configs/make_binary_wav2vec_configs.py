@@ -9,8 +9,6 @@ BASE_CONFIG = {
     "input_col": "file",
     "label_col": "label",
     "use_windowing": True,
-    "window_length": 4,
-    "stride_length": 1.0,
     "attention_dropout": 0.1,
     "hidden_dropout": 0.1,
     "final_dropout": 0.1,
@@ -30,7 +28,7 @@ BASE_CONFIG = {
     "group_by_length": True,
     "gradient_accumulation_steps": 2,
     "fp16": True,
-    "save_total_limit": 2,
+    "save_total_limit": 1,
     "load_best_model_at_end": True,
     "save_strategy": "epoch",
 }
@@ -63,7 +61,7 @@ if __name__ == "__main__":
 
     augmentations = ["configs/augmentation_config.yml", ""]
 
-    model_types = ["Alvenir/wav2vec-base-da", "facebook/wav2vec2-xls-r-300m"]
+    model_types = ["Alvenir/wav2vec2-base-da", "facebook/wav2vec2-xls-r-300m"]
 
     for c in classes:
 

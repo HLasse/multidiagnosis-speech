@@ -13,7 +13,7 @@ pytorch-lightning
 speechbrain
 opensmile
 wandb
-torch-audiomentations
+git+https://github.com/HLasse/torch-audiomentations.git
 black
 fire
 wasabi
