@@ -144,4 +144,4 @@ setup_git.sh
 *DS_Store
 lightning_logs/
 *.json
-*.jsonl
+
