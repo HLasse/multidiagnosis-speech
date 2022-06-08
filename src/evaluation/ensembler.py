@@ -11,18 +11,32 @@ from pathlib import Path
 from sklearn import ensemble
 
 
-def merge_predictions(df: pd.DataFrame, group_column: str, score_column: str):
+def merge_predictions(
+    df: pd.DataFrame, group_column: str, score_column: str, agg_fun: str
+):
     """Aggregates
 
     Args:
         df (pd.DataFrame): dataframe containing a `group_column`, `score_column` and optional metadata
         group_column (str): column to aggregate predictions by
         score_column (str): column that scores are stored in. Assumes the column to be a list/array type
+        agg_fun (str): which aggregation functino to use. "mean" or "max". Defaults to "mean"
     """
 
-    def agg_fun(scores: List[float]):
-        array = np.array(scores.tolist())
+    def mean_agg_fun(scores: List[float]):
+        array = np.stack(scores)
         return np.mean(array, axis=0)
+
+    def max_agg_fun(scores: List[float]):
+        array = np.stack(scores)
+        return np.max(array, axis=0)
+
+    if agg_fun == "mean":
+        agg_fun = mean_agg_fun
+    elif agg_fun == "max":
+        agg_fun = max_agg_fun
+    else:
+        raise ValueError(f"{agg_fun} not a supported agg function.")
 
     # Aggregate by trial id
     agg_scores = df.groupby(group_column).agg({score_column: agg_fun})
@@ -37,7 +51,10 @@ def merge_predictions(df: pd.DataFrame, group_column: str, score_column: str):
 
 
 def ensemble_models(
-    model_paths: List[Union[str, Path]], group_column="id", score_column="scores"
+    model_paths: List[Union[str, Path]],
+    group_column="id",
+    score_column="scores",
+    final_agg_fun: str = "mean",
 ) -> pd.DataFrame:
     """Create an ensemble of models, by aggregating their (softmaxed) output
 
@@ -51,12 +68,17 @@ def ensemble_models(
     """
     model_outputs = [pd.read_json(m, orient="records", lines=True) for m in model_paths]
     agg_models = [
-        merge_predictions(df, group_column=group_column, score_column=score_column)
+        merge_predictions(
+            df, group_column=group_column, score_column=score_column, agg_fun="mean"
+        )
         for df in model_outputs
     ]
     agg_models = pd.concat(agg_models)
     return merge_predictions(
-        agg_models, group_column=group_column, score_column=score_column
+        agg_models,
+        group_column=group_column,
+        score_column=score_column,
+        agg_fun=final_agg_fun,
     )
 
 

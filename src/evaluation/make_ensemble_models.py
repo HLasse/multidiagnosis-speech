@@ -56,13 +56,13 @@ if __name__ == "__main__":
         # get file path
         p = [res_path / f for f in pair]
         # make ensemble model
-        ensemble = ensemble_models(p)
+        ensemble = ensemble_models(p, final_agg_fun="max")
         # add metadata
         model_type = "baseline" if i % 2 == 0 else "transformer"
         ensemble["model_name"] = f"{model_type}_{c}_ensemble"
         ensemble["target_class"] = c
         ensemble["is_baseline"] = 1 if i % 2 == 0 else 0
-
+        ensemble["type"] = "ensemble"
         # calculate performance
         if c != "multiclass":
             id2label = {0: "TD", 1: c}
