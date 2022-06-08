@@ -1,10 +1,14 @@
 """Combine predictions from multiple modalities by averaging"""
 import pandas as pd
 
-from typing import List
+from typing import List, Union
 
 
 import numpy as np
+
+from pathlib import Path
+
+from sklearn import ensemble
 
 
 def merge_predictions(df: pd.DataFrame, group_column: str, score_column: str):
@@ -32,7 +36,39 @@ def merge_predictions(df: pd.DataFrame, group_column: str, score_column: str):
     return df
 
 
+def ensemble_models(
+    model_paths: List[Union[str, Path]], group_column="id", score_column="scores"
+) -> pd.DataFrame:
+    """Create an ensemble of models, by aggregating their (softmaxed) output
+
+    Args:
+        model_paths (List[Union[str, Path]]): Path to model results json
+        group_column (str, optional): Column to group by. Defaults to "id".
+        score_column (str, optional): Column containing output. Defaults to "scores".
+
+    Returns:
+        pd.DataFrame: Dataframe with score_column containing ensembled outputs
+    """
+    model_outputs = [pd.read_json(m, orient="records", lines=True) for m in model_paths]
+    agg_models = [
+        merge_predictions(df, group_column=group_column, score_column=score_column)
+        for df in model_outputs
+    ]
+    agg_models = pd.concat(agg_models)
+    return merge_predictions(
+        agg_models, group_column=group_column, score_column=score_column
+    )
+
+
 if __name__ == "__main__":
+
+    res_path = Path("results")
+    files = [
+        res_path / "alvenir_DEPR_aug_test.jsonl",
+        res_path / "baseline_DEPR_aggregated_mfccs_test.jsonl",
+    ]
+
+    ensembled = ensemble_models(files)
 
     df = pd.DataFrame(
         {
