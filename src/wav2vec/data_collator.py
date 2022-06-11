@@ -3,7 +3,7 @@ https://colab.research.google.com/github/m3hrdadfi/soxan/blob/main/notebooks/Emo
 to not pad labels but only the input"""
 from transformers import Wav2Vec2Processor
 import torch
-
+import torchaudio
 from dataclasses import dataclass
 from typing import Union, Optional, Dict, List, Callable
 
@@ -82,10 +82,99 @@ class DataCollatorCTCWithInputPadding:
             # an extra dimension is added _somewhere_ before input to to the model
             # need to remove the channel dimension again
             batch["input_values"] = batch["input_values"].squeeze()
+            ## If only a single item in the batch the above will remove the batch dimension
+            if len(batch["input_values"].shape) == 1:
+                batch["input_values"] = batch["input_values"][None, :]
 
         batch["labels"] = torch.tensor(label_features, dtype=d_type)
 
         return batch
+
+
+
+@dataclass
+class DataCollatorCTCWithFileLoader:
+    """
+    Data collator that will dynamically pad the inputs received.
+    Args:
+        processor (:class:`~transformers.Wav2Vec2Processor`)
+            The processor used for proccessing the data.
+        padding (:obj:`bool`, :obj:`str` or :class:`~transformers.tokenization_utils_base.PaddingStrategy`, `optional`, defaults to :obj:`True`):
+            Select a strategy to pad the returned sequences (according to the model's padding side and padding index)
+            among:
+            * :obj:`True` or :obj:`'longest'`: Pad to the longest sequence in the batch (or no padding if only a single
+              sequence if provided).
+            * :obj:`'max_length'`: Pad to a maximum length specified with the argument :obj:`max_length` or to the
+              maximum acceptable input length for the model if that argument is not provided.
+            * :obj:`False` or :obj:`'do_not_pad'` (default): No padding (i.e., can output a batch with sequences of
+              different lengths).
+        max_length (:obj:`int`, `optional`):
+            Maximum length of the ``input_values`` of the returned list and optionally padding length (see above).
+        max_length_labels (:obj:`int`, `optional`):
+            Maximum length of the ``labels`` returned list and optionally padding length (see above).
+        pad_to_multiple_of (:obj:`int`, `optional`):
+            If set will pad the sequence to a multiple of the provided value.
+            This is especially useful to enable the use of Tensor Cores on NVIDIA hardware with compute capability >=
+            7.5 (Volta).
+        augmentation_fn (:obj:`callable`, `optional`): which augmentations to apply.
+    """
+
+    processor: Wav2Vec2Processor
+    padding: Union[bool, str] = True
+    max_length: Optional[int] = None
+    max_length_labels: Optional[int] = None
+    pad_to_multiple_of: Optional[int] = None
+    pad_to_multiple_of_labels: Optional[int] = None
+    augmentation_fn: Optional[Callable] = None
+
+    def __call__(
+        self, batch: List[Dict[str, Union[List[int], torch.Tensor]]]
+    ) -> Dict[str, torch.Tensor]:
+        """Batch is a list of dicts. input_values should contain the file path"""   
+
+        # split inputs and labels since they have to be of different lenghts and need
+        # different padding methods
+
+        # load files
+        audio = [torchaudio.load(example["input_values"])[0] for example in batch]
+        
+        # can't be stacked as some files are shorter. Probably a good idea to only return full length samples
+        # that would enable tensor operations instead of list comprehensions
+        # audio = torch.stack(audio)
+        # augment
+        def _augment(audio):
+            if len(audio.shape) == 2:
+                audio = audio[:, None, :]
+            audio = self.augmentation_fn(audio).samples
+            return audio.squeeze()
+        audio = [_augment(a) for a in audio]
+
+        # run through processor
+        audio = [self.processor(a, sampling_rate=16_000) for a in audio]
+        # pad
+
+        # array indented in list, therefore indexing 
+        input_features = [
+            {"input_values": feature["input_values"][0]} for feature in audio
+        ]
+
+        label_features = [feature["labels"] for feature in batch]
+
+        d_type = torch.long if isinstance(label_features[0], int) else torch.float
+
+        # pad
+        batch = self.processor.pad(
+            input_features,
+            padding=self.padding,
+            max_length=self.max_length,
+            pad_to_multiple_of=self.pad_to_multiple_of,
+            return_tensors="pt",
+        )
+
+        batch["labels"] = torch.tensor(label_features, dtype=d_type)
+
+        return batch
+
 
 
 @dataclass

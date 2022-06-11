@@ -1,8 +1,5 @@
-""" Train XLSR model on the training set
-TODO
-- test if augmentations work correctly
-- experiment with parameters (lower learning rate)
-- add support for resuming training from checkpoint
+"""
+Train from dataset with paths and labels
 """
 import dataclasses
 import logging
@@ -38,6 +35,7 @@ from src.make_windows import stack_frames
 from src.wav2vec.data_collator import (
     DataCollatorCTCWithInputPadding,
     DataCollatorCTCWithPaddingKlaam,
+    DataCollatorCTCWithFileLoader
 )
 from src.wav2vec.trainer import TrainerWithWeights
 from src.wav2vec.processor import CustomWav2Vec2Processor
@@ -130,29 +128,6 @@ class ModelArguments:
     )
 
 
-# Preprocessing functions
-def speech_file_to_array(path):
-    "resample audio to match what the model expects (16000 khz)"
-    speech_array, sampling_rate = torchaudio.load(path)
-    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
-    speech = resampler(speech_array).squeeze().numpy()
-    return speech
-
-
-def stack_speech_file_to_array(path):
-    """Loads and resamples audio to target sampling rate and converts the
-    audio into windows of specified length and stride"""
-    speech_array, sampling_rate = torchaudio.load(path)
-    resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
-    speech_array = resampler(speech_array)
-
-    windowed_arrays = stack_frames(
-        speech_array.squeeze(),
-        sampling_rate=target_sampling_rate,
-        frame_length=WINDOW_SIZE,
-        frame_stride=WINDOW_STRIDE,
-    )
-    return windowed_arrays
 
 
 def preprocess_stacked_speech_files(batch):
@@ -189,15 +164,11 @@ def preprocess_stacked_speech_files(batch):
 
     return out
 
+def map_l2id(example):
+    example["labels"] = label2id[example["label"]]
+    example["input_values"] = example["filename"]
+    return example
 
-def preprocess(batch):
-    "preprocess hf dataset/load data"
-    speech_list = [speech_file_to_array(path) for path in batch[io_args.input_col]]
-    labels = [label2id[label] for label in batch[io_args.label_col]]
-
-    out = processor(speech_list, sampling_rate=target_sampling_rate)
-    out["labels"] = list(labels)
-    return out
 
 
 # which metrics to compute for evaluation
@@ -205,19 +176,6 @@ def compute_metrics(p: EvalPrediction):
     preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
     preds = np.argmax(preds, axis=1)
     return {"accuracy": (preds == p.label_ids).astype(np.float32).mean().item()}
-
-
-# def compute_metrics(pred):
-#     labels = pred.label_ids.argmax(-1)
-#     preds = pred.predictions.argmax(-1)
-#     acc = accuracy_score(labels, preds)
-#     wandb.log(
-#         {"conf_mat" : wandb.plot.confusion_matrix(probs=None, y_true=labels, preds=preds, class_names=label_list)}
-#     )
-#     wandb.log(
-#         {"precision_recall" : wandb.plot.pr_curve(y_true=labels, preds=preds, class_names=label_list)}
-#     )
-#     return {"accuracy": acc}
 
 
 if __name__ == "__main__":
@@ -274,11 +232,6 @@ if __name__ == "__main__":
     train = dataset["train"]
     val = dataset["validation"]
 
-    # debug = True
-    # if debug:
-    #     train = train.select([1, 20, 50, 60, 80, 110, 220, 550, 400, 300])
-    #     val = val.select([1, 50, 100, 150, 200])
-
     # Optionally train on fewer samples for debugging
     if io_args.max_training_samples is not None:
         n_train_samples = len(train)
@@ -296,6 +249,7 @@ if __name__ == "__main__":
         )
         val = val.select(val_indices)
         val = val.flatten_indices()
+
     # get labels and num labels
     label_list = train.unique(io_args.label_col)
     num_labels = len(label_list)
@@ -312,6 +266,10 @@ if __name__ == "__main__":
     print(f"label2id: {label2id}")
     print(f"id2label: {id2label}")
 
+    # map label2id
+    train = train.map(map_l2id, num_proc=20)
+    val = val.map(map_l2id, num_proc=20)
+
     # Load feature extractor
     ### Alvenirs wav2vec model does not have a preprocessor_config.json so
     # need to use the one from xls-r (or wav2vec-base??) so hard-coding it
@@ -321,28 +279,6 @@ if __name__ == "__main__":
     processor = CustomWav2Vec2Processor(feature_extractor=feature_extractor)
     # need this parameter for preprocessing to resample audio to correct sampling rate
     target_sampling_rate = processor.feature_extractor.sampling_rate
-
-    # preprocess datasets
-    print("[INFO] Preprocessing dataset...")
-    if io_args.use_windowing:
-        print(
-            f"[INFO] Using windows of size {WINDOW_SIZE} and stride {WINDOW_STRIDE}"
-        )
-        train = train.map(
-            preprocess_stacked_speech_files,
-            batched=True,
-            remove_columns=dataset["train"].column_names,
-            batch_size=200,
-        )
-        val = val.map(
-            preprocess_stacked_speech_files,
-            batched=True,
-            remove_columns=dataset["validation"].column_names,
-            batch_size=200,
-        )
-    else:
-        train = train.map(preprocess, batched=True)
-        val = val.map(preprocess, batched=True)
 
     # shuffle rows of training set
     train = train.shuffle(seed=42)
@@ -356,26 +292,26 @@ if __name__ == "__main__":
         io_args.model_name,
         num_labels=num_labels,
         label2id=label2id,
-        id2label=id2label, use_auth_token=True,
+        id2label=id2label,
         finetuning_task="wav2vec2_clf",
         **dataclasses.asdict(model_args),
     )
 
     # load model (with a simple linear projection (input 1024 -> 256 units) and a classification layer on top)
     model = Wav2Vec2ForSequenceClassification.from_pretrained(
-        io_args.model_name, config=config, use_auth_token=True
+        io_args.model_name, config=config
     )
 
     # instantiate a data collator that takes care of correctly padding and optionally augmenting the input data
     if io_args.augmentations:
         augmenter = torch_audiomentations.utils.config.from_yaml(io_args.augmentations)
         augment_fn = partial(augmenter, sample_rate=target_sampling_rate)
-        data_collator = DataCollatorCTCWithInputPadding(
+        data_collator = DataCollatorCTCWithFileLoader(
             processor=processor, padding=True, augmentation_fn=augment_fn
         )
     else:
-        data_collator = DataCollatorCTCWithInputPadding(
-            processor=processor, padding=True
+        data_collator = DataCollatorCTCWithFileLoader(
+            processor=processor, padding=True, max_length=WINDOW_SIZE*16000
         )
 
     if model_args.freeze_encoder and not model_args.freeze_base_model:
@@ -393,6 +329,8 @@ if __name__ == "__main__":
         dtype=torch.float,
     ).to(torch.device(training_args.device))
 
+    #trainings_args = TrainingArguments(**training_args, label_names="labels")
+
     trainer = TrainerWithWeights(
         model=model,
         data_collator=data_collator,
@@ -401,8 +339,8 @@ if __name__ == "__main__":
         train_dataset=train,
         eval_dataset=val,
         tokenizer=processor.feature_extractor,
-        class_loss_weights=weights,
-    )
+        class_loss_weights=weights 
+        )
 
     # Train!
     print("[INFO] Starting training...")

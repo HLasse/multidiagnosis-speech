@@ -31,6 +31,8 @@ if __name__ == "__main__":
         id2label = MULTICLASS_ID2LABEL_MAPPING if diagnosis == "multiclass" else {0: "TD", 1: diagnosis}
 
         for split in ["val", "test", "train"]:
+            if split == "val":
+                continue
             msg.info(f"Split: {split}")
 
             if diagnosis == "multiclass":

@@ -21,12 +21,12 @@ BASE_CONFIG = {
     "freeze_base_model": True,
     "output_dir": "",
     "run_name": "",
-    "num_train_epochs": 20,
-    "per_device_train_batch_size": 32,
+    "num_train_epochs": 4,
+    "per_device_train_batch_size": 64,
     "learning_rate": 1e-5,
     "evaluation_strategy": "epoch",
-    "group_by_length": True,
-    "gradient_accumulation_steps": 2,
+    "group_by_length": False,
+    "gradient_accumulation_steps": 1,
     "fp16": True,
     "save_total_limit": 1,
     "load_best_model_at_end": True,
@@ -59,9 +59,9 @@ if __name__ == "__main__":
     BASE_OUTPUT_DIR = Path("wav2vec_models")
     classes = ["multiclass", "ASD", "DEPR", "SCHZ"]
 
-    augmentations = ["configs/augmentation_config.yml", ""]
+    augmentations = ["configs/augmentation_config.yml"]
 
-    model_types = ["Alvenir/wav2vec2-base-da", "facebook/wav2vec2-xls-r-300m"]
+    model_types = ["Alvenir/wav2vec2-base-da", "facebook/wav2vec2-xls-r-300m", "chcaa/wav2vec2-xls-r-300m-danish"]
 
     for c in classes:
 
@@ -80,6 +80,8 @@ if __name__ == "__main__":
             for model in model_types:
                 if "base-da" in model:
                     model_run_name = "alvenir"
+                elif "danish" in model:
+                    model_run_name = "gjallarhorn"
                 elif "xls-r" in model:
                     model_run_name = "xls-r"
 

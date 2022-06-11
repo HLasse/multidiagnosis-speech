@@ -1,6 +1,6 @@
 sudo apt-get update --allow-releaseinfo-change
 sudo apt-get install -y libsndfile1
-sudo apt install libpython3.9-dev
+sudo apt install libpython3.9-dev -y
 
 sudo apt install -y tmux
 echo "set -g mouse on" >> ~/.tmux.conf # enable scrolling

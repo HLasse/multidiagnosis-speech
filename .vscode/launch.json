@@ -21,7 +21,18 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "args": [
-                "configs/wav2vec_configs/alvenir_ASD_aug.json"
+                "configs/test_configs/wav2vec_test_config.json"
+            ],
+            "justMyCode": false
+        },
+        {
+            "name": "Train wav2vec streaming",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceRoot}/train_wav2vec_streaming.py",
+            "console": "integratedTerminal",
+            "args": [
+                "configs/test_configs/wav2vec_test_config.json"
             ],
             "justMyCode": false
         },

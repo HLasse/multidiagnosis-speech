@@ -90,7 +90,7 @@ if __name__ == "__main__":
     print("[INFO] Loading dataset...")
     dataset = load_dataset("csv", data_files=data_files, delimiter=",")
 
-    print(f"[INFO] Using windows of size {WINDOW_LENGTH} and stride {STRIDE_LENGTH}")
+    print(f"[INFO] Using windows of size {WINDOW_SIZE} and stride {WINDOW_STRIDE}")
 
     dataset = dataset.map(
         preprocess_stacked_speech_files,
