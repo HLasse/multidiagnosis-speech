@@ -1,0 +1,49 @@
+---
+title: "Tables"
+output: html_document
+---
+
+
+```{r}
+
+library(table1)
+pacman::p_load(tidyverse, here, knitr, kableExtra)
+
+
+df <- read_csv(here::here("data", "multi_diagnosis", "CleanData4.csv"))
+
+wdf_full <- wdf_full %>%
+  mutate(HamD_17 = ifelse(visit == 1, HamD17_Before, HamD17_After))
+
+names(df)
+
+
+
+df$Gender <- factor(df$Gender, levels=c("F", "M"), labels=c("Female", "Male"))
+wdf_full$visit <- factor(wdf_full$visit, levels=c("1", "2"), labels=c("Visit 1", "Visit 2"))
+
+
+label(df$Gender) <- "Gender"
+label(df$Education) <- "Education (years)"
+label(df$Age) <- "Age"
+
+
+t <- table1(~ Age + Gender  + Education | OverallStudy * Diagnosis,
+       data=df,
+       overall=FALSE,
+       render.missing=NULL, 
+       footnote="Top level grouping specifies which study the participants come from."
+#       render.continuous=c(. = "Mean (SD)")
+)
+
+
+t_d <- as.data.frame(t)
+kbl(t_d, booktabs=T, format="latex") %>% 
+  kable_styling()
+
+t %>% t1kable(format="latex") 
+
+base::t(t_d) %>% kbl()
+T(t)
+```
+
