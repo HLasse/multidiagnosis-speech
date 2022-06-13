@@ -1,7 +1,6 @@
 # wav2vec_finetune
 
-Test finetuning of XLSR (multilingual wav2vec 2.0) for classification of mental disorders from speech.
-
+Finetuning of feature based baselines and Transformer models for classification of mental disorders from speech.
 
 ```
 # make virtual env
@@ -11,17 +10,21 @@ mkdir data
 # download and unzip data to 'data/multi_diagnosis'
 wget ...
 unzip ..
-# make sure metadata file (CleanData3.csv) is in 'data/multidiagnosis.
+# make sure metadata file (CleanData4.csv) is in 'data/multidiagnosis.
 # if only access to CleanData.csv, run preprocessing/merge_participant_metadata.py
 
 # run preprocessing scripts
 bash run_preprocessing.py
 
-# train model from config file
-python train_wav2vec path_to_config_file
+# train baseline models
+python train_baseline_models.py
 
-# evaluate model from config file
-python evaluate_wav2vec path_to_config_file
+# train wav2vec models
+bash train_wav2vec.sh
+
+#evaluate models
+bash evaluate_baselines.sh
+python evaluate_wav2vec_models.py
 
 ```
 

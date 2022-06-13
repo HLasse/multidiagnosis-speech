@@ -1,5 +1,0 @@
-{
-    "model_type": "wav2vec",
-    "model_path": "model/xls-r-lr-3e-3-10epoch",
-    "metadata_path": "data/multi_diagnosis/CleanData3.csv"
-}

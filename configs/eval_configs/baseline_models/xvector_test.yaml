@@ -1,3 +1,0 @@
-model_type: embedding_baseline
-model_path: /work/wav2vec_finetune/baseline_models/baseline_xvector/epoch=29-step=710.ckpt
-feature_set: xvector
