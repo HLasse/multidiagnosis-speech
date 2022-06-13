@@ -146,3 +146,5 @@ lightning_logs/
 *.json
 *.wav
 *.png
+.Rproj.user
+*.Rhistory

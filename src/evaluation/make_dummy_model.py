@@ -5,7 +5,7 @@ import pandas as pd
 from pathlib import Path
 
 if __name__ == "__main__":
-    base_path = Path("results") / "combined_results" 
+    base_path = Path("results") 
 
     id2label = {0: "TD", 1: "DEPR", 2: "ASD", 3: "SCHZ"}
 
