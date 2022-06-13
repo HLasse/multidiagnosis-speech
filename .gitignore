@@ -148,3 +148,4 @@ lightning_logs/
 *.png
 .Rproj.user
 *.Rhistory
+*.Rproj
