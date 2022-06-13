@@ -36,8 +36,7 @@ from transformers.trainer_utils import get_last_checkpoint, is_main_process
 from constants import MULTICLASS_ID2LABEL_MAPPING, MULTICLASS_LABEL2ID_MAPPING, WINDOW_SIZE, WINDOW_STRIDE
 from src.make_windows import stack_frames
 from src.wav2vec.data_collator import (
-    DataCollatorCTCWithInputPadding,
-    DataCollatorCTCWithPaddingKlaam,
+    DataCollatorCTCWithInputPadding
 )
 from src.wav2vec.trainer import TrainerWithWeights
 from src.wav2vec.processor import CustomWav2Vec2Processor
