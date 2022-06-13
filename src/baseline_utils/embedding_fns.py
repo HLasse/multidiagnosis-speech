@@ -48,7 +48,7 @@ def get_embedding_fns():
                 egemapsv2.process_signal(a, sampling_rate=16000).to_numpy().squeeze()
                 for a in audio
             ]
-        return torch.tensor(embeddings)
+        return torch.tensor(np.array(embeddings))
 
     compare = opensmile.Smile(
         feature_set=opensmile.FeatureSet.ComParE_2016,

@@ -133,8 +133,7 @@ class ModelEvaluator:
         if self.model_type == "embedding_baseline":
             logits = self._embedding_predict_windows(speech_windows)
 
-        scores = [F.softmax(logit, dim=0).detach().cpu().numpy() for logit in logits]
-        pooled_pred = np.mean(scores, axis=0)
+        pooled_pred = logits.mean(dim=0).detach().cpu().numpy()
         pred = self.id2label[np.argmax(pooled_pred)]
         confidence = pooled_pred[np.argmax(pooled_pred)]
         return pred, confidence, pooled_pred
@@ -150,9 +149,12 @@ class ModelEvaluator:
         # squeeze doesn't work if only 1 window (removes two dimensions)
         input_values = features.input_values.to(self.device).flatten(0, 1)
         attention_mask = features.attention_mask.to(self.device).flatten(0, 1)
+        attention_mask = None
 
         with torch.no_grad():
             logits = self.model(input_values, attention_mask=attention_mask).logits
+            # returns unnormalized scores
+            logits = logits.softmax(dim=1)
         return logits
 
     def _embedding_predict_windows(self, speech_windows):
