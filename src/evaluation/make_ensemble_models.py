@@ -74,6 +74,8 @@ if __name__ == "__main__":
             ensemble["target_class"] = c
             ensemble["is_baseline"] = 1 if i % 2 == 0 else 0
             ensemble["type"] = "ensemble"
+            # save to file
+            ensemble.to_json(res_path / f"ensemble_{c}_{model_type}_{split}.jsonl", orient="records", lines=True)
             # calculate performance
             if c != "multiclass":
                 id2label = {0: "TD", 1: c}

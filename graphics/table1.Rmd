@@ -47,3 +47,9 @@ base::t(t_d) %>% kbl()
 T(t)
 ```
 
+
+# Table 1 split by set
+```{r}
+
+```
+
