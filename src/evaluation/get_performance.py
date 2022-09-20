@@ -1,7 +1,7 @@
 import pandas as pd
 from pathlib import Path
 
-from psycopmlutils.model_comparison import performance_metrics_from_folder
+from psycopmlutils.model_performance import ModelPerformance
 
 
 def add_target_class(filename: Path):
@@ -38,10 +38,12 @@ if __name__ == "__main__":
     for diagnosis in ["DEPR", "ASD", "SCHZ"]:
         score_mapping = {0: "TD", 1: diagnosis}
 
-        diag_df = performance_metrics_from_folder(
-            path=results_path,
+        diag_df = ModelPerformance.performance_metrics_from_folder(
+            folder=results_path,
             pattern=f"*{diagnosis}*.jsonl",
-            id_col="id",
+            prediction_col_name="scores",
+            label_col_name="label",
+            id_col_name="id",
             id2label=score_mapping,
             metadata_cols="all",
         )
@@ -50,10 +52,12 @@ if __name__ == "__main__":
     # multiclass
     multiclass_mapping = {0: "TD", 1: "DEPR", 2: "ASD", 3: "SCHZ"}
 
-    multiclass_df = performance_metrics_from_folder(
-        path=results_path,
+    multiclass_df = ModelPerformance.performance_metrics_from_folder(
+        folder=results_path,
         pattern="*multiclass*.jsonl",
-        id_col="id",
+        prediction_col_name="scores",
+        label_col_name="label",
+        id_col_name="id",
         id2label=multiclass_mapping,
         metadata_cols="all",
     )
